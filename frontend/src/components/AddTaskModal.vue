@@ -127,7 +127,7 @@
                 <!-- Notification bell for overdue tasks -->
                 <div 
                   v-if="!form.assigned_people.includes(person.id) && taskStore.overdueTasksByPerson.get(person.id) > 0" 
-                  class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-pulse"
+                  class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-urgent-pulse"
                 >
                   <svg v-if="taskStore.overdueTasksByPerson.get(person.id) === 1" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6z"/>

@@ -104,10 +104,32 @@ export async function initDatabase() {
         if (err) console.error('Error creating task_assignments table:', err);
       });
 
+      // Add missing columns for soft delete (for existing databases)
+      db.run(`
+        ALTER TABLE tasks ADD COLUMN deleted BOOLEAN DEFAULT 0
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted column:', err);
+        }
+      });
+
+      db.run(`
+        ALTER TABLE tasks ADD COLUMN deleted_at DATETIME
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted_at column:', err);
+        }
+      });
+
       // Create indexes for better performance
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_assignments_person ON task_assignments(person_id)');
 
       // Insert default categories if they don't exist
       db.get('SELECT COUNT(*) as count FROM categories', (err, row) => {
@@ -167,6 +189,47 @@ export function getAll(sql, params = []) {
       else resolve(rows);
     });
   });
+}
+
+// Transaction helper functions
+export function beginTransaction() {
+  return new Promise((resolve, reject) => {
+    db.run('BEGIN TRANSACTION', (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+export function commitTransaction() {
+  return new Promise((resolve, reject) => {
+    db.run('COMMIT', (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+export function rollbackTransaction() {
+  return new Promise((resolve, reject) => {
+    db.run('ROLLBACK', (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+// Execute multiple queries in a transaction
+export async function runInTransaction(callback) {
+  try {
+    await beginTransaction();
+    const result = await callback();
+    await commitTransaction();
+    return result;
+  } catch (error) {
+    await rollbackTransaction();
+    throw error;
+  }
 }
 
 export default db;

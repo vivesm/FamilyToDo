@@ -98,7 +98,7 @@
         <!-- Notification bell for overdue tasks -->
         <div 
           v-if="taskStore.overdueTasksByPerson.get(person.id) > 0" 
-          class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-pulse"
+          class="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center animate-urgent-pulse"
           :style="{ zIndex: 100 }"
         >
           <svg v-if="taskStore.overdueTasksByPerson.get(person.id) === 1" class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">

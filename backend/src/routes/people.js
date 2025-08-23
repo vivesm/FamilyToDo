@@ -1,6 +1,12 @@
 import express from 'express';
 import { getAll, getOne, runQuery } from '../db/database.js';
 import { emitUpdate } from '../utils/socketEmitter.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -67,13 +73,19 @@ router.put('/:id', async (req, res) => {
 
     await runQuery(
       `UPDATE people 
-       SET name = COALESCE(?, name),
-           email = COALESCE(?, email),
-           photo_url = COALESCE(?, photo_url),
-           color = COALESCE(?, color),
+       SET name = ?,
+           email = ?,
+           photo_url = ?,
+           color = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [name, email, photo_url, color, req.params.id]
+      [
+        name !== undefined ? name : existing.name,
+        email !== undefined ? email : existing.email,
+        photo_url !== undefined ? photo_url : existing.photo_url,
+        color !== undefined ? color : existing.color,
+        req.params.id
+      ]
     );
     
     const updatedPerson = await getOne('SELECT * FROM people WHERE id = ?', [req.params.id]);
@@ -96,6 +108,19 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Person not found' });
     }
 
+    // Clean up person's photo if it exists
+    if (existing.photo_url) {
+      try {
+        const filename = existing.photo_url.split('/').pop();
+        const filepath = path.join(__dirname, '../../uploads', filename);
+        await fs.unlink(filepath);
+      } catch (err) {
+        // Log but don't fail if image deletion fails
+        console.error('Failed to delete person photo:', err);
+      }
+    }
+
+    // Delete person (cascade will handle task_assignments)
     await runQuery('DELETE FROM people WHERE id = ?', [req.params.id]);
     
     // Emit real-time update

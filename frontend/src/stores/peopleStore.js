@@ -39,10 +39,8 @@ export const usePeopleStore = defineStore('people', () => {
   async function updatePerson(id, personData) {
     try {
       const response = await api.put(`/people/${id}`, personData);
-      const index = people.value.findIndex(p => p.id === id);
-      if (index !== -1) {
-        people.value[index] = response.data;
-      }
+      // Don't update local store here - the socket event will handle it
+      // This prevents duplicate updates for the person making the change
       toast.success('Person updated!');
       return response.data;
     } catch (error) {
@@ -55,7 +53,8 @@ export const usePeopleStore = defineStore('people', () => {
   async function deletePerson(id) {
     try {
       await api.delete(`/people/${id}`);
-      people.value = people.value.filter(p => p.id !== id);
+      // Don't update local store here - the socket event will handle it
+      // This prevents duplicate updates for the person making the change
       toast.success('Person removed');
     } catch (error) {
       toast.error('Failed to remove person');

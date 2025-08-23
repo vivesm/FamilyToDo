@@ -130,10 +130,8 @@ export const useTaskStore = defineStore('tasks', () => {
   async function updateTask(id, taskData) {
     try {
       const response = await api.put(`/tasks/${id}`, taskData);
-      const index = tasks.value.findIndex(t => t.id === id);
-      if (index !== -1) {
-        tasks.value[index] = response.data;
-      }
+      // Don't update local store here - the socket event will handle it
+      // This prevents duplicate updates for the person making the change
       toast.success('Task updated!');
       return response.data;
     } catch (error) {
@@ -146,16 +144,13 @@ export const useTaskStore = defineStore('tasks', () => {
   async function completeTask(id) {
     try {
       const response = await api.post(`/tasks/${id}/complete`);
-      const index = tasks.value.findIndex(t => t.id === id);
-      if (index !== -1) {
-        // Add completion animation class before updating
-        const taskElement = document.querySelector(`[data-task-id="${id}"]`);
-        if (taskElement) {
-          taskElement.classList.add('task-completing');
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        tasks.value[index] = response.data;
+      // Add completion animation class
+      const taskElement = document.querySelector(`[data-task-id="${id}"]`);
+      if (taskElement) {
+        taskElement.classList.add('task-completing');
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
+      // Don't update local store here - the socket event will handle it
       toast.success('Task completed! 🎉');
       
       // Play completion sound if available
@@ -172,10 +167,7 @@ export const useTaskStore = defineStore('tasks', () => {
   async function uncompleteTask(id) {
     try {
       const response = await api.post(`/tasks/${id}/uncomplete`);
-      const index = tasks.value.findIndex(t => t.id === id);
-      if (index !== -1) {
-        tasks.value[index] = response.data;
-      }
+      // Don't update local store here - the socket event will handle it
       toast.info('Task marked as incomplete');
       return response.data;
     } catch (error) {
@@ -188,7 +180,7 @@ export const useTaskStore = defineStore('tasks', () => {
   async function deleteTask(id) {
     try {
       await api.delete(`/tasks/${id}`);
-      tasks.value = tasks.value.filter(t => t.id !== id);
+      // Don't update local store here - the socket event will handle it
       toast.success('Task deleted');
     } catch (error) {
       toast.error('Failed to delete task');

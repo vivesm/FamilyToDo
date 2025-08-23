@@ -1,6 +1,8 @@
 import express from 'express';
-import { getAll, getOne, runQuery } from '../db/database.js';
+import { getAll, getOne, runQuery, runInTransaction } from '../db/database.js';
 import { emitUpdate } from '../utils/socketEmitter.js';
+import { isValidPriority, isValidRecurringPattern } from '../utils/validation.js';
+import { toUTCString, calculateNextOccurrence } from '../utils/dateUtils.js';
 
 const router = express.Router();
 
@@ -134,30 +136,45 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Title is required' });
   }
 
+  // Validate priority
+  if (priority && !isValidPriority(priority)) {
+    return res.status(400).json({ error: 'Invalid priority value. Must be 1, 2, or 3' });
+  }
+
+  // Validate recurring pattern
+  if (recurring_pattern && !isValidRecurringPattern(recurring_pattern)) {
+    return res.status(400).json({ error: 'Invalid recurring pattern. Must be daily, weekly, or monthly' });
+  }
+
   try {
-    // Insert task
-    const result = await runQuery(
-      `INSERT INTO tasks (title, description, category_id, priority, due_date, recurring_pattern) 
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        title, 
-        description || null, 
-        category_id || null, 
-        priority || 3, 
-        due_date || null, 
-        recurring_pattern || null
-      ]
-    );
-    
-    // Assign people if provided
-    if (assigned_people && assigned_people.length > 0) {
-      for (const personId of assigned_people) {
-        await runQuery(
-          'INSERT INTO task_assignments (task_id, person_id) VALUES (?, ?)',
-          [result.id, personId]
-        );
+    // Use transaction for task creation with assignments
+    const newTaskId = await runInTransaction(async () => {
+      // Insert task
+      const result = await runQuery(
+        `INSERT INTO tasks (title, description, category_id, priority, due_date, recurring_pattern) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          title, 
+          description || null, 
+          category_id || null, 
+          priority || 3, 
+          toUTCString(due_date), 
+          recurring_pattern || null
+        ]
+      );
+      
+      // Assign people if provided
+      if (assigned_people && assigned_people.length > 0) {
+        for (const personId of assigned_people) {
+          await runQuery(
+            'INSERT INTO task_assignments (task_id, person_id) VALUES (?, ?)',
+            [result.id, personId]
+          );
+        }
       }
-    }
+      
+      return result.id;
+    });
     
     // Fetch complete task with relationships
     const newTask = await getOne(`
@@ -169,7 +186,7 @@ router.post('/', async (req, res) => {
       FROM tasks t
       LEFT JOIN categories c ON t.category_id = c.id
       WHERE t.id = ?
-    `, [result.id]);
+    `, [newTaskId]);
     
     // Get assigned people
     const people = await getAll(`
@@ -177,7 +194,7 @@ router.post('/', async (req, res) => {
       FROM people p
       JOIN task_assignments ta ON p.id = ta.person_id
       WHERE ta.task_id = ?
-    `, [result.id]);
+    `, [newTaskId]);
     
     newTask.assigned_people = people;
     
@@ -212,15 +229,23 @@ router.put('/:id', async (req, res) => {
     // Update task
     await runQuery(
       `UPDATE tasks 
-       SET title = COALESCE(?, title),
-           description = COALESCE(?, description),
-           category_id = COALESCE(?, category_id),
-           priority = COALESCE(?, priority),
-           due_date = COALESCE(?, due_date),
-           recurring_pattern = COALESCE(?, recurring_pattern),
+       SET title = ?,
+           description = ?,
+           category_id = ?,
+           priority = ?,
+           due_date = ?,
+           recurring_pattern = ?,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [title, description, category_id, priority, due_date, recurring_pattern, req.params.id]
+      [
+        title !== undefined ? title : existing.title,
+        description !== undefined ? description : existing.description,
+        category_id !== undefined ? category_id : existing.category_id,
+        priority !== undefined ? priority : existing.priority,
+        due_date !== undefined ? due_date : existing.due_date,
+        recurring_pattern !== undefined ? recurring_pattern : existing.recurring_pattern,
+        req.params.id
+      ]
     );
     
     // Update assignments if provided
@@ -293,7 +318,7 @@ router.post('/:id/complete', async (req, res) => {
     // Handle recurring tasks
     if (existing.recurring_pattern) {
       // Create next occurrence
-      const nextDueDate = calculateNextDueDate(existing.due_date, existing.recurring_pattern);
+      const nextDueDate = calculateNextOccurrence(existing.due_date, existing.recurring_pattern);
       
       const result = await runQuery(
         `INSERT INTO tasks (title, description, category_id, priority, due_date, recurring_pattern) 
@@ -369,6 +394,41 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    // Handle recurring tasks - create next occurrence before deleting
+    if (existing.recurring_pattern) {
+      const nextDueDate = calculateNextOccurrence(existing.due_date, existing.recurring_pattern);
+      
+      const result = await runQuery(
+        `INSERT INTO tasks (title, description, category_id, priority, due_date, recurring_pattern) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          existing.title,
+          existing.description,
+          existing.category_id,
+          existing.priority,
+          nextDueDate,
+          existing.recurring_pattern
+        ]
+      );
+      
+      // Copy assignments to new task
+      const assignments = await getAll(
+        'SELECT person_id FROM task_assignments WHERE task_id = ?',
+        [req.params.id]
+      );
+      
+      for (const assignment of assignments) {
+        await runQuery(
+          'INSERT INTO task_assignments (task_id, person_id) VALUES (?, ?)',
+          [result.id, assignment.person_id]
+        );
+      }
+      
+      // Emit the new task creation
+      const newTask = await getOne('SELECT * FROM tasks WHERE id = ?', [result.id]);
+      emitUpdate(req.app.get('io'), 'task-created', newTask);
+    }
+
     // Soft delete - mark as deleted instead of removing from database
     await runQuery(
       `UPDATE tasks 
@@ -389,25 +449,5 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Helper function to calculate next due date for recurring tasks
-function calculateNextDueDate(currentDueDate, pattern) {
-  const date = currentDueDate ? new Date(currentDueDate) : new Date();
-  
-  switch (pattern) {
-    case 'daily':
-      date.setDate(date.getDate() + 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    default:
-      return null;
-  }
-  
-  return date.toISOString();
-}
 
 export default router;

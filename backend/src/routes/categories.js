@@ -1,6 +1,7 @@
 import express from 'express';
 import { getAll, getOne, runQuery } from '../db/database.js';
 import { emitUpdate } from '../utils/socketEmitter.js';
+import { isEmoji, isValidHexColor } from '../utils/validation.js';
 
 const router = express.Router();
 
@@ -39,6 +40,16 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Name and icon are required' });
   }
 
+  // Validate icon is an emoji
+  if (!isEmoji(icon)) {
+    return res.status(400).json({ error: 'Icon must be a valid emoji' });
+  }
+
+  // Validate color format if provided
+  if (color && !isValidHexColor(color)) {
+    return res.status(400).json({ error: 'Color must be a valid hex color (e.g., #FF0000)' });
+  }
+
   try {
     const result = await runQuery(
       'INSERT INTO categories (name, icon, color, sort_order) VALUES (?, ?, ?, ?)',
@@ -61,6 +72,16 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { name, icon, color, sort_order } = req.body;
   
+  // Validate icon if provided
+  if (icon !== undefined && !isEmoji(icon)) {
+    return res.status(400).json({ error: 'Icon must be a valid emoji' });
+  }
+
+  // Validate color if provided
+  if (color !== undefined && color && !isValidHexColor(color)) {
+    return res.status(400).json({ error: 'Color must be a valid hex color (e.g., #FF0000)' });
+  }
+  
   try {
     const existing = await getOne('SELECT * FROM categories WHERE id = ?', [req.params.id]);
     if (!existing) {
@@ -69,12 +90,18 @@ router.put('/:id', async (req, res) => {
 
     await runQuery(
       `UPDATE categories 
-       SET name = COALESCE(?, name),
-           icon = COALESCE(?, icon),
-           color = COALESCE(?, color),
-           sort_order = COALESCE(?, sort_order)
+       SET name = ?,
+           icon = ?,
+           color = ?,
+           sort_order = ?
        WHERE id = ?`,
-      [name, icon, color, sort_order, req.params.id]
+      [
+        name !== undefined ? name : existing.name,
+        icon !== undefined ? icon : existing.icon,
+        color !== undefined ? color : existing.color,
+        sort_order !== undefined ? sort_order : existing.sort_order,
+        req.params.id
+      ]
     );
     
     const updatedCategory = await getOne('SELECT * FROM categories WHERE id = ?', [req.params.id]);

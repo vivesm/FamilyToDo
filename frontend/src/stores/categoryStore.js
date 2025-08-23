@@ -25,7 +25,7 @@ export const useCategoryStore = defineStore('categories', () => {
   async function createCategory(categoryData) {
     try {
       const response = await api.post('/categories', categoryData);
-      categories.value.push(response.data);
+      // Don't update local store here - the socket event will handle it
       toast.success('Category added!');
       return response.data;
     } catch (error) {
@@ -38,10 +38,7 @@ export const useCategoryStore = defineStore('categories', () => {
   async function updateCategory(id, categoryData) {
     try {
       const response = await api.put(`/categories/${id}`, categoryData);
-      const index = categories.value.findIndex(c => c.id === id);
-      if (index !== -1) {
-        categories.value[index] = response.data;
-      }
+      // Don't update local store here - the socket event will handle it
       toast.success('Category updated!');
       return response.data;
     } catch (error) {
@@ -54,7 +51,7 @@ export const useCategoryStore = defineStore('categories', () => {
   async function deleteCategory(id) {
     try {
       await api.delete(`/categories/${id}`);
-      categories.value = categories.value.filter(c => c.id !== id);
+      // Don't update local store here - the socket event will handle it
       toast.success('Category removed');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to remove category');

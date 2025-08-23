@@ -20,11 +20,11 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { useTaskStore } from '@/stores/taskStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useCategoryStore } from '@/stores/categoryStore';
-import { initSocket } from '@/services/socket';
+import { initSocket, disconnectSocket } from '@/services/socket';
 import { useDarkMode } from '@/composables/useDarkMode';
 
 const taskStore = useTaskStore();
@@ -44,6 +44,11 @@ onMounted(async () => {
     categoryStore.fetchCategories(),
     taskStore.fetchTasks()
   ]);
+});
+
+onUnmounted(() => {
+  // Clean up socket connection on app unmount
+  disconnectSocket();
 });
 </script>
 

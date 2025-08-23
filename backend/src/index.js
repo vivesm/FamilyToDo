@@ -18,6 +18,10 @@ import uploadRoutes from './routes/upload.js';
 // Import database
 import { initDatabase } from './db/database.js';
 
+// Import middleware
+import { apiLimiter, uploadLimiter, createLimiter } from './middleware/rateLimiter.js';
+import { sendErrorResponse } from './utils/errorHandler.js';
+
 // Load environment variables
 dotenv.config();
 
@@ -55,11 +59,19 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '..', 'public')));
 }
 
-// API Routes
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimiter);
+
+// API Routes with specific rate limits
 app.use('/api/people', peopleRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/categories', categoriesRoutes);
-app.use('/api/upload', uploadRoutes);
+app.use('/api/upload', uploadLimiter, uploadRoutes);
+
+// Apply create limiter to POST endpoints
+app.post('/api/people', createLimiter);
+app.post('/api/tasks', createLimiter);
+app.post('/api/categories', createLimiter);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -90,13 +102,7 @@ app.set('io', io);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal server error',
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    }
-  });
+  sendErrorResponse(res, err);
 });
 
 // Serve index.html for all non-API routes in production (SPA)
