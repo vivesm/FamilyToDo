@@ -1,0 +1,32 @@
+# Caddyfile for FamilyToDo with Tailscale
+
+# Replace 'your-tailscale-domain' with your actual Tailscale domain
+# Example: familytodo.tail123abc.ts.net
+
+familytodo.tail*.ts.net {
+    # Reverse proxy to the FamilyToDo app
+    reverse_proxy familytodo:4000
+
+    # Enable compression
+    encode gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:;"
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+}
+
+# Local development (if not using Tailscale)
+:80 {
+    reverse_proxy familytodo:4000
+}
