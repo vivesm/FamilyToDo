@@ -14,6 +14,7 @@ import peopleRoutes from './routes/people.js';
 import tasksRoutes from './routes/tasks.js';
 import categoriesRoutes from './routes/categories.js';
 import uploadRoutes from './routes/upload.js';
+import commentsRoutes from './routes/comments.js';
 
 // Import database
 import { initDatabase } from './db/database.js';
@@ -67,6 +68,7 @@ app.use('/api/people', peopleRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/upload', uploadLimiter, uploadRoutes);
+app.use('/api/comments', apiLimiter, commentsRoutes);
 
 // Apply create limiter to POST endpoints
 app.post('/api/people', createLimiter);

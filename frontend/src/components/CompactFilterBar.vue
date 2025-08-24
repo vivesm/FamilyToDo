@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-40 border-b border-gray-200 dark:border-gray-700">
+  <div class="bg-white/80 dark:bg-surface-dark/80 backdrop-blur-lg shadow-soft sticky top-0 z-40 border-b border-neutral-200/50 dark:border-neutral-800/50">
     <div class="px-4 py-3">
       <div class="flex items-center justify-between">
         <!-- Left side: Filters -->

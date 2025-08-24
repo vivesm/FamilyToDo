@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+  <div class="flex items-center bg-white/50 dark:bg-surface-dark/50 backdrop-blur-md rounded-full p-1 border border-neutral-200/30 dark:border-neutral-700/30">
     <button
       @click="taskStore.setViewMode('card')"
       class="view-toggle-btn"
@@ -31,11 +31,11 @@ const taskStore = useTaskStore();
 
 <style scoped>
 .view-toggle-btn {
-  @apply px-3 py-2 rounded-md text-gray-600 dark:text-gray-400 
-         hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200;
+  @apply px-3 py-2 rounded-full text-gray-600 dark:text-gray-400 
+         hover:bg-white/70 dark:hover:bg-surface-dark/70 transition-all duration-200 hover:scale-105;
 }
 
 .view-toggle-active {
-  @apply bg-white dark:bg-gray-800 text-blue-500 shadow-sm;
+  @apply bg-gradient-primary text-white shadow-soft;
 }
 </style>

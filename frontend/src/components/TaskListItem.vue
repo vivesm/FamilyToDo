@@ -1,7 +1,7 @@
 <template>
   <div
     :data-task-id="task.id"
-    class="relative flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors overflow-hidden"
+    class="relative flex items-center space-x-3 p-4 bg-white/50 dark:bg-surface-dark/50 border-b border-neutral-200/30 dark:border-neutral-700/30 hover:bg-white/80 dark:hover:bg-surface-dark/80 transition-all duration-200 overflow-hidden"
     :class="{ 
       'opacity-50': task.completed,
       'task-overdue': isOverdue && !task.completed 

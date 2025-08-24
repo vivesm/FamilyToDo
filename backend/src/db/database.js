@@ -104,6 +104,58 @@ export async function initDatabase() {
         if (err) console.error('Error creating task_assignments table:', err);
       });
 
+      // Create task_attachments table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS task_attachments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          original_name TEXT,
+          url TEXT NOT NULL,
+          type TEXT,
+          size INTEGER,
+          uploaded_by INTEGER,
+          uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+          FOREIGN KEY (uploaded_by) REFERENCES people(id) ON DELETE SET NULL
+        )
+      `, (err) => {
+        if (err) console.error('Error creating task_attachments table:', err);
+      });
+
+      // Create task_comments table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS task_comments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          task_id INTEGER NOT NULL,
+          person_id INTEGER,
+          comment TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+          FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE SET NULL
+        )
+      `, (err) => {
+        if (err) console.error('Error creating task_comments table:', err);
+      });
+
+      // Create comment_attachments table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS comment_attachments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          comment_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          original_name TEXT,
+          url TEXT NOT NULL,
+          type TEXT,
+          size INTEGER,
+          uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (comment_id) REFERENCES task_comments(id) ON DELETE CASCADE
+        )
+      `, (err) => {
+        if (err) console.error('Error creating comment_attachments table:', err);
+      });
+
       // Add missing columns for soft delete (for existing databases)
       db.run(`
         ALTER TABLE tasks ADD COLUMN deleted BOOLEAN DEFAULT 0
@@ -130,6 +182,9 @@ export async function initDatabase() {
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id)');
       db.run('CREATE INDEX IF NOT EXISTS idx_assignments_person ON task_assignments(person_id)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_task_attachments_task ON task_attachments(task_id)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_comment_attachments_comment ON comment_attachments(comment_id)');
 
       // Insert default categories if they don't exist
       db.get('SELECT COUNT(*) as count FROM categories', (err, row) => {

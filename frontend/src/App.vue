@@ -1,9 +1,9 @@
 <template>
-  <div id="app" class="min-h-screen bg-gray-50 dark:bg-gray-900 safe-top safe-bottom">
+  <div id="app" class="min-h-screen bg-neutral-50 dark:bg-neutral-950 safe-top safe-bottom">
     <!-- Dark mode toggle button -->
     <button
       @click="toggleDarkMode"
-      class="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-200"
+      class="fixed bottom-4 left-4 z-50 p-3 rounded-2xl bg-white/80 dark:bg-surface-dark/80 backdrop-blur-md shadow-soft hover:shadow-soft-lg transition-all duration-300 hover:scale-110 border border-neutral-200/50 dark:border-neutral-700/50"
       :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
     >
       <!-- Sun icon for light mode -->

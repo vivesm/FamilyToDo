@@ -1,10 +1,10 @@
 <template>
   <div class="container mx-auto px-4 py-6 max-w-4xl">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-3xl font-bold dark:text-gray-200">Settings</h1>
-      <router-link to="/" class="text-blue-500 hover:text-blue-600">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">Settings</h1>
+      <router-link to="/" class="p-2 rounded-full glass-card hover:shadow-soft-lg transition-all duration-300 hover:scale-110">
+        <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </router-link>
@@ -13,7 +13,7 @@
     <!-- Settings Sections -->
     <div class="space-y-6">
       <!-- Appearance Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+      <div class="glass-card p-6">
         <h2 class="text-xl font-semibold mb-4 dark:text-gray-200">Appearance</h2>
         <div class="space-y-4">
           <div class="flex items-center justify-between">
@@ -53,12 +53,12 @@
       </div>
 
       <!-- Family Members Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+      <div class="glass-card p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold dark:text-gray-200">Family Members</h2>
           <button
             @click="showAddPerson = true"
-            class="text-blue-500 hover:text-blue-600"
+            class="p-2 rounded-full bg-gradient-primary text-white hover:shadow-lg transition-all duration-300 hover:scale-110"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -71,7 +71,7 @@
           <div
             v-for="person in peopleStore.people"
             :key="person.id"
-            class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700"
+            class="flex items-center justify-between p-3 rounded-xl bg-white/50 dark:bg-surface-dark/50 backdrop-blur-sm border border-neutral-200/30 dark:border-neutral-700/30 hover:bg-white/80 dark:hover:bg-surface-dark/80 transition-all duration-200"
           >
             <div class="flex items-center space-x-3">
               <img
@@ -117,12 +117,12 @@
       </div>
 
       <!-- Categories Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+      <div class="glass-card p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold dark:text-gray-200">Categories</h2>
           <button
             @click="showAddCategory = true"
-            class="text-blue-500 hover:text-blue-600"
+            class="p-2 rounded-full bg-gradient-primary text-white hover:shadow-lg transition-all duration-300 hover:scale-110"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -135,7 +135,7 @@
           <div
             v-for="category in categoryStore.categories"
             :key="category.id"
-            class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700"
+            class="flex items-center justify-between p-3 rounded-xl bg-white/50 dark:bg-surface-dark/50 backdrop-blur-sm border border-neutral-200/30 dark:border-neutral-700/30 hover:bg-white/80 dark:hover:bg-surface-dark/80 transition-all duration-200"
           >
             <div class="flex items-center space-x-3">
               <span class="text-2xl">{{ category.icon }}</span>
@@ -167,7 +167,7 @@
       </div>
 
       <!-- Priority Settings Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+      <div class="glass-card p-6">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-xl font-semibold dark:text-gray-200">Priority Levels</h2>
         </div>
@@ -177,7 +177,7 @@
           <div
             v-for="level in [1, 2, 3]"
             :key="level"
-            class="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700"
+            class="flex items-center justify-between p-3 rounded-xl bg-white/50 dark:bg-surface-dark/50 backdrop-blur-sm border border-neutral-200/30 dark:border-neutral-700/30 hover:bg-white/80 dark:hover:bg-surface-dark/80 transition-all duration-200"
           >
             <div class="flex items-center space-x-3">
               <span class="text-2xl">{{ priorityStore.getPriority(level).emoji }}</span>
@@ -199,7 +199,7 @@
       </div>
 
       <!-- About Section -->
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6">
+      <div class="glass-card p-6">
         <h2 class="text-xl font-semibold mb-4 dark:text-gray-200">About</h2>
         <div class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>FamilyToDo v1.0.0</p>
@@ -210,8 +210,8 @@
     </div>
 
     <!-- Add/Edit Person Modal -->
-    <div v-if="showAddPerson" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="closePersonModal">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div v-if="showAddPerson" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closePersonModal">
+      <div class="bg-white/95 dark:bg-surface-dark/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/10 max-w-md w-full p-6 animate-slide-up">
         <h3 class="text-xl font-semibold mb-4 dark:text-gray-200">{{ editingPerson ? 'Edit Family Member' : 'Add Family Member' }}</h3>
         <form @submit.prevent="handleSavePerson" class="space-y-4">
           <!-- Name -->
@@ -224,7 +224,7 @@
               type="text"
               required
               placeholder="Enter name"
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-neutral-800 transition-all duration-200"
             >
           </div>
 
@@ -237,7 +237,7 @@
               v-model="personForm.email"
               type="email"
               placeholder="Enter email address"
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-neutral-800 transition-all duration-200"
             >
           </div>
 
@@ -295,13 +295,13 @@
             <button
               type="button"
               @click="closePersonModal"
-              class="flex-1 px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              class="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="flex-1 px-4 py-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+              class="btn-primary"
             >
               {{ editingPerson ? 'Update' : 'Add' }} Member
             </button>
@@ -311,8 +311,8 @@
     </div>
 
     <!-- Add/Edit Category Modal -->
-    <div v-if="showAddCategory" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="closeCategoryModal">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div v-if="showAddCategory" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closeCategoryModal">
+      <div class="bg-white/95 dark:bg-surface-dark/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/10 max-w-md w-full p-6 animate-slide-up">
         <h3 class="text-xl font-semibold mb-4 dark:text-gray-200">{{ editingCategory ? 'Edit Category' : 'Add Category' }}</h3>
         <form @submit.prevent="handleSaveCategory" class="space-y-4">
           <!-- Name -->
@@ -325,7 +325,7 @@
               type="text"
               required
               placeholder="Enter category name"
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-neutral-800 transition-all duration-200"
             >
           </div>
 
@@ -366,13 +366,13 @@
             <button
               type="button"
               @click="closeCategoryModal"
-              class="flex-1 px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              class="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="flex-1 px-4 py-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+              class="btn-primary"
             >
               {{ editingCategory ? 'Update' : 'Add' }} Category
             </button>
@@ -382,8 +382,8 @@
     </div>
 
     <!-- Edit Priority Modal -->
-    <div v-if="showEditPriority" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="closePriorityModal">
-      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div v-if="showEditPriority" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="closePriorityModal">
+      <div class="bg-white/95 dark:bg-surface-dark/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/10 max-w-md w-full p-6 animate-slide-up">
         <h3 class="text-xl font-semibold mb-4 dark:text-gray-200">Edit Priority Level {{ editingPriorityLevel }}</h3>
         <form @submit.prevent="handleSavePriority" class="space-y-4">
           <!-- Name -->
@@ -396,7 +396,7 @@
               type="text"
               required
               placeholder="Enter priority name"
-              class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-neutral-800 transition-all duration-200"
             >
           </div>
 
@@ -419,13 +419,13 @@
             <button
               type="button"
               @click="closePriorityModal"
-              class="flex-1 px-4 py-3 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              class="btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
-              class="flex-1 px-4 py-3 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+              class="btn-primary"
             >
               Update Priority
             </button>

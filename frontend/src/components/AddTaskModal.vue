@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="$emit('close')">
-    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[650px] md:max-h-[85vh] overflow-y-auto animate-slide-up">
+  <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="$emit('close')">
+    <div class="bg-white/95 dark:bg-surface-dark/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-white/10 max-w-2xl w-full max-h-[650px] md:max-h-[85vh] overflow-y-auto animate-slide-up">
       <!-- Header -->
       <div class="p-6 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center justify-between">
@@ -25,7 +25,7 @@
             type="text"
             required
             placeholder="What needs to be done?"
-            class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+            class="w-full px-4 py-3 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-neutral-800 transition-all duration-200 text-lg"
           >
         </div>
 
@@ -38,8 +38,8 @@
             <button
               type="button"
               @click="form.priority = 1"
-              class="p-4 rounded-lg border-2 transition-all"
-              :class="form.priority === 1 ? 'border-priority-urgent bg-priority-urgent/10' : 'border-gray-300 dark:border-gray-600'"
+              class="p-4 rounded-2xl border-2 transition-all duration-200 hover:scale-105"
+              :class="form.priority === 1 ? 'border-priority-urgent bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 shadow-lg' : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'"
             >
               <span class="text-2xl">{{ priorityStore.getPriority(1).emoji }}</span>
               <p class="text-sm mt-1 dark:text-gray-300">{{ priorityStore.getPriority(1).name }}</p>
@@ -47,8 +47,8 @@
             <button
               type="button"
               @click="form.priority = 2"
-              class="p-4 rounded-lg border-2 transition-all"
-              :class="form.priority === 2 ? 'border-priority-soon bg-priority-soon/10' : 'border-gray-300 dark:border-gray-600'"
+              class="p-4 rounded-2xl border-2 transition-all duration-200 hover:scale-105"
+              :class="form.priority === 2 ? 'border-priority-soon bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 shadow-lg' : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'"
             >
               <span class="text-2xl">{{ priorityStore.getPriority(2).emoji }}</span>
               <p class="text-sm mt-1 dark:text-gray-300">{{ priorityStore.getPriority(2).name }}</p>
@@ -56,8 +56,8 @@
             <button
               type="button"
               @click="form.priority = 3"
-              class="p-4 rounded-lg border-2 transition-all"
-              :class="form.priority === 3 ? 'border-priority-whenever bg-priority-whenever/10' : 'border-gray-300 dark:border-gray-600'"
+              class="p-4 rounded-2xl border-2 transition-all duration-200 hover:scale-105"
+              :class="form.priority === 3 ? 'border-priority-whenever bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 shadow-lg' : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'"
             >
               <span class="text-2xl">{{ priorityStore.getPriority(3).emoji }}</span>
               <p class="text-sm mt-1 dark:text-gray-300">{{ priorityStore.getPriority(3).name }}</p>

@@ -1,12 +1,12 @@
 <template>
   <div
     :data-task-id="task.id"
-    class="task-card cursor-pointer select-none relative overflow-hidden"
+    class="glass-card p-5 cursor-pointer select-none relative overflow-hidden transition-all duration-300 hover:shadow-soft-lg hover:scale-[1.02] active:scale-[0.98]"
     :class="{
-      'task-card-urgent': task.priority === 1 && !task.completed,
-      'task-card-soon': task.priority === 2 && !task.completed,
-      'task-card-whenever': task.priority === 3 && !task.completed,
-      'opacity-50': task.completed,
+      'border-l-4 border-l-priority-urgent shadow-priority-urgent/20': task.priority === 1 && !task.completed,
+      'border-l-4 border-l-priority-soon shadow-priority-soon/20': task.priority === 2 && !task.completed,
+      'border-l-4 border-l-priority-whenever shadow-priority-whenever/20': task.priority === 3 && !task.completed,
+      'opacity-60 grayscale': task.completed,
       'task-overdue': isOverdue && !task.completed
     }"
     @click="handleTaskClick"

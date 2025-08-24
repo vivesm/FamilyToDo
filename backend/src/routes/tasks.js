@@ -22,7 +22,9 @@ router.get('/', async (req, res) => {
             json_object('id', p.id, 'name', p.name, 'photo_url', p.photo_url, 'color', p.color)
           END,
           '|||'
-        ), '') as assigned_people
+        ), '') as assigned_people,
+        (SELECT COUNT(*) FROM task_attachments WHERE task_id = t.id) as attachment_count,
+        (SELECT COUNT(*) FROM task_comments WHERE task_id = t.id) as comment_count
       FROM tasks t
       LEFT JOIN categories c ON t.category_id = c.id
       LEFT JOIN task_assignments ta ON t.id = ta.task_id
@@ -446,6 +448,83 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting task:', error);
     res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+// Get task attachments
+router.get('/:id/attachments', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const attachments = await getAll(`
+      SELECT 
+        ta.*,
+        p.name as uploaded_by_name,
+        p.photo_url as uploaded_by_photo
+      FROM task_attachments ta
+      LEFT JOIN people p ON ta.uploaded_by = p.id
+      WHERE ta.task_id = ?
+      ORDER BY ta.uploaded_at DESC
+    `, [id]);
+    
+    res.json(attachments);
+  } catch (error) {
+    console.error('Error fetching attachments:', error);
+    res.status(500).json({ error: 'Failed to fetch attachments' });
+  }
+});
+
+// Get single task with all details (attachments, comments)
+router.get('/:id/details', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Get task with basic info
+    const task = await getOne(`
+      SELECT 
+        t.*,
+        c.name as category_name,
+        c.icon as category_icon,
+        c.color as category_color
+      FROM tasks t
+      LEFT JOIN categories c ON t.category_id = c.id
+      WHERE t.id = ?
+    `, [id]);
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    // Get assigned people
+    task.assigned_people = await getAll(`
+      SELECT p.* FROM people p
+      JOIN task_assignments ta ON p.id = ta.person_id
+      WHERE ta.task_id = ?
+    `, [id]);
+    
+    // Get attachments
+    task.attachments = await getAll(`
+      SELECT 
+        ta.*,
+        p.name as uploaded_by_name,
+        p.photo_url as uploaded_by_photo
+      FROM task_attachments ta
+      LEFT JOIN people p ON ta.uploaded_by = p.id
+      WHERE ta.task_id = ?
+      ORDER BY ta.uploaded_at DESC
+    `, [id]);
+    
+    // Get comment count (comments will be loaded separately)
+    const commentCount = await getOne(
+      'SELECT COUNT(*) as count FROM task_comments WHERE task_id = ?',
+      [id]
+    );
+    task.comment_count = commentCount.count;
+    
+    res.json(task);
+  } catch (error) {
+    console.error('Error fetching task details:', error);
+    res.status(500).json({ error: 'Failed to fetch task details' });
   }
 });
 
