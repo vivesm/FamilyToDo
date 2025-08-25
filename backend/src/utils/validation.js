@@ -68,5 +68,22 @@ export function isValidPriority(priority) {
  * @returns {boolean} - True if valid pattern
  */
 export function isValidRecurringPattern(pattern) {
-  return ['daily', 'weekly', 'monthly', null, undefined, ''].includes(pattern);
+  // Basic patterns
+  const basicPatterns = ['daily', 'weekly', 'biweekly', 'monthly', 'weekdays', null, undefined, ''];
+  
+  // Check basic patterns
+  if (basicPatterns.includes(pattern)) return true;
+  
+  // Check custom interval patterns (e.g., "every_2_weeks", "every_3_days")
+  if (pattern && pattern.startsWith('every_')) {
+    const parts = pattern.split('_');
+    if (parts.length === 3) {
+      const interval = parseInt(parts[1]);
+      const unit = parts[2];
+      return !isNaN(interval) && interval > 0 && interval <= 365 && 
+             ['days', 'day', 'weeks', 'week', 'months', 'month'].includes(unit);
+    }
+  }
+  
+  return false;
 }

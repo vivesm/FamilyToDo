@@ -50,33 +50,67 @@ export function isOverdue(dueDate) {
  * @param {string} pattern - Recurring pattern (daily, weekly, monthly)
  * @returns {string|null} - Next occurrence date as ISO string
  */
-export function calculateNextOccurrence(currentDate, pattern) {
+export function calculateNextOccurrence(currentDate, pattern, fromCompletion = false) {
   if (!currentDate || !pattern) return null;
   
-  const date = parseDate(currentDate);
-  if (!date) return null;
+  // If fromCompletion is true, use today's date as base
+  const baseDate = fromCompletion ? new Date() : parseDate(currentDate);
+  if (!baseDate) return null;
   
-  const nextDate = new Date(date);
+  const nextDate = new Date(baseDate);
   
-  switch (pattern) {
-    case 'daily':
-      nextDate.setDate(nextDate.getDate() + 1);
-      break;
-    case 'weekly':
-      nextDate.setDate(nextDate.getDate() + 7);
-      break;
-    case 'monthly':
-      // Handle month boundaries correctly
-      const currentDay = nextDate.getDate();
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      
-      // If the day changed (e.g., Jan 31 -> Feb 28), set to last day of month
-      if (nextDate.getDate() !== currentDay) {
-        nextDate.setDate(0); // Sets to last day of previous month
-      }
-      break;
-    default:
-      return null;
+  // Parse advanced patterns (e.g., "every_2_weeks", "weekdays", "biweekly")
+  if (pattern.includes('_')) {
+    const parts = pattern.split('_');
+    const interval = parseInt(parts[1]) || 1;
+    const unit = parts[2] || parts[0];
+    
+    switch (unit) {
+      case 'days':
+      case 'day':
+        nextDate.setDate(nextDate.getDate() + interval);
+        break;
+      case 'weeks':
+      case 'week':
+        nextDate.setDate(nextDate.getDate() + (interval * 7));
+        break;
+      case 'months':
+      case 'month':
+        const currentDay = nextDate.getDate();
+        nextDate.setMonth(nextDate.getMonth() + interval);
+        if (nextDate.getDate() !== currentDay) {
+          nextDate.setDate(0);
+        }
+        break;
+    }
+  } else {
+    // Handle standard patterns
+    switch (pattern) {
+      case 'daily':
+        nextDate.setDate(nextDate.getDate() + 1);
+        break;
+      case 'weekly':
+        nextDate.setDate(nextDate.getDate() + 7);
+        break;
+      case 'biweekly':
+        nextDate.setDate(nextDate.getDate() + 14);
+        break;
+      case 'monthly':
+        const currentDay = nextDate.getDate();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        if (nextDate.getDate() !== currentDay) {
+          nextDate.setDate(0);
+        }
+        break;
+      case 'weekdays':
+        // Move to next weekday
+        do {
+          nextDate.setDate(nextDate.getDate() + 1);
+        } while (nextDate.getDay() === 0 || nextDate.getDay() === 6);
+        break;
+      default:
+        return null;
+    }
   }
   
   return toUTCString(nextDate);

@@ -15,16 +15,111 @@ const sqlite = process.env.NODE_ENV === 'development'
   ? sqlite3.verbose() 
   : sqlite3;
 
-const db = new sqlite.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err);
-  } else {
-    console.log('Connected to SQLite database');
-  }
-});
+// Connection pool configuration for SQLite
+const DB_CONFIG = {
+  timeout: 5000, // 5 seconds
+  busyTimeout: 1000, // 1 second for busy database
+  maxRetries: 3,
+  retryDelay: 100 // milliseconds
+};
 
-// Enable foreign keys
-db.run('PRAGMA foreign_keys = ON');
+let db = null;
+
+// Initialize database connection with optimized settings
+function initializeConnection() {
+  return new Promise((resolve, reject) => {
+    db = new sqlite.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+      if (err) {
+        console.error('Error opening database:', err);
+        reject(err);
+        return;
+      }
+      
+      console.log('Connected to SQLite database');
+      
+      // Configure SQLite for optimal performance and concurrency
+      const pragmaCommands = [
+        // Enable foreign keys
+        'PRAGMA foreign_keys = ON',
+        
+        // Use WAL mode for better concurrency
+        'PRAGMA journal_mode = WAL',
+        
+        // Optimize SQLite settings
+        'PRAGMA synchronous = NORMAL', // Balance between safety and speed
+        'PRAGMA cache_size = -64000', // 64MB cache
+        'PRAGMA temp_store = MEMORY', // Use memory for temp tables
+        'PRAGMA mmap_size = 268435456', // 256MB memory-mapped I/O
+        'PRAGMA optimize', // Auto-optimize statistics
+        
+        // Set busy timeout
+        `PRAGMA busy_timeout = ${DB_CONFIG.busyTimeout}`,
+        
+        // Auto-checkpoint WAL
+        'PRAGMA wal_autocheckpoint = 1000'
+      ];
+      
+      let completed = 0;
+      let hasError = false;
+      
+      pragmaCommands.forEach((pragma, index) => {
+        db.run(pragma, (err) => {
+          if (err && !hasError) {
+            hasError = true;
+            console.error(`Error executing ${pragma}:`, err);
+            reject(err);
+            return;
+          }
+          
+          completed++;
+          if (completed === pragmaCommands.length && !hasError) {
+            resolve(db);
+          }
+        });
+      });
+    });
+    
+    // Set database timeout
+    if (db) {
+      db.configure('busyTimeout', DB_CONFIG.busyTimeout);
+    }
+  });
+}
+
+// Connection recovery and retry logic
+async function withRetry(operation, retries = DB_CONFIG.maxRetries) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (retries > 0 && (error.code === 'SQLITE_BUSY' || error.code === 'SQLITE_LOCKED')) {
+      console.warn(`Database busy, retrying... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, DB_CONFIG.retryDelay));
+      return withRetry(operation, retries - 1);
+    }
+    throw error;
+  }
+}
+
+// Health check function
+export function checkDatabaseHealth() {
+  return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database connection not initialized'));
+      return;
+    }
+    
+    db.get('SELECT 1 as health', (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve({ healthy: true, timestamp: new Date().toISOString() });
+      }
+    });
+  });
+}
+
+// Initialize connection on startup
+await initializeConnection();
 
 // Database initialization
 export async function initDatabase() {
@@ -157,12 +252,14 @@ export async function initDatabase() {
       });
 
       // Add missing columns for soft delete (for existing databases)
+      
+      // Tasks soft delete columns
       db.run(`
         ALTER TABLE tasks ADD COLUMN deleted BOOLEAN DEFAULT 0
       `, (err) => {
         // Ignore error if column already exists
         if (err && !err.message.includes('duplicate column name')) {
-          console.error('Error adding deleted column:', err);
+          console.error('Error adding deleted column to tasks:', err);
         }
       });
 
@@ -171,16 +268,66 @@ export async function initDatabase() {
       `, (err) => {
         // Ignore error if column already exists
         if (err && !err.message.includes('duplicate column name')) {
-          console.error('Error adding deleted_at column:', err);
+          console.error('Error adding deleted_at column to tasks:', err);
+        }
+      });
+
+      // People soft delete columns
+      db.run(`
+        ALTER TABLE people ADD COLUMN deleted BOOLEAN DEFAULT 0
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted column to people:', err);
+        }
+      });
+
+      db.run(`
+        ALTER TABLE people ADD COLUMN deleted_at DATETIME
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted_at column to people:', err);
+        }
+      });
+
+      // Categories soft delete columns
+      db.run(`
+        ALTER TABLE categories ADD COLUMN deleted BOOLEAN DEFAULT 0
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted column to categories:', err);
+        }
+      });
+
+      db.run(`
+        ALTER TABLE categories ADD COLUMN deleted_at DATETIME
+      `, (err) => {
+        // Ignore error if column already exists
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding deleted_at column to categories:', err);
         }
       });
 
       // Create indexes for better performance
+      
+      // Task indexes
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_deleted ON tasks(deleted)');
       db.run('CREATE INDEX IF NOT EXISTS idx_tasks_category ON tasks(category_id)');
+      
+      // People indexes
+      db.run('CREATE INDEX IF NOT EXISTS idx_people_deleted ON people(deleted)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_people_name ON people(name)');
+      
+      // Category indexes
+      db.run('CREATE INDEX IF NOT EXISTS idx_categories_deleted ON categories(deleted)');
+      db.run('CREATE INDEX IF NOT EXISTS idx_categories_sort ON categories(sort_order)');
+      
+      // Relationship indexes
       db.run('CREATE INDEX IF NOT EXISTS idx_assignments_person ON task_assignments(person_id)');
       db.run('CREATE INDEX IF NOT EXISTS idx_task_attachments_task ON task_attachments(task_id)');
       db.run('CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id)');
@@ -216,74 +363,152 @@ export async function initDatabase() {
   });
 }
 
-// Helper function to run queries with promises
+// Helper function to run queries with promises and retry logic
 export function runQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) reject(err);
-      else resolve({ id: this.lastID, changes: this.changes });
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.run(sql, params, function(err) {
+        if (err) reject(err);
+        else resolve({ id: this.lastID, changes: this.changes });
+      });
     });
   });
 }
 
-// Helper function to get single row
+// Helper function to get single row with retry logic
 export function getOne(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
     });
   });
 }
 
-// Helper function to get multiple rows
+// Helper function to get multiple rows with retry logic
 export function getAll(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
     });
   });
 }
 
-// Transaction helper functions
+// Transaction helper functions with retry logic
 export function beginTransaction() {
-  return new Promise((resolve, reject) => {
-    db.run('BEGIN TRANSACTION', (err) => {
-      if (err) reject(err);
-      else resolve();
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.run('BEGIN IMMEDIATE', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
   });
 }
 
 export function commitTransaction() {
-  return new Promise((resolve, reject) => {
-    db.run('COMMIT', (err) => {
-      if (err) reject(err);
-      else resolve();
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.run('COMMIT', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
   });
 }
 
 export function rollbackTransaction() {
-  return new Promise((resolve, reject) => {
-    db.run('ROLLBACK', (err) => {
-      if (err) reject(err);
-      else resolve();
+  return withRetry(() => {
+    return new Promise((resolve, reject) => {
+      if (!db) {
+        reject(new Error('Database connection not initialized'));
+        return;
+      }
+      
+      db.run('ROLLBACK', (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
   });
 }
 
-// Execute multiple queries in a transaction
+// Execute multiple queries in a transaction with enhanced error handling
 export async function runInTransaction(callback) {
+  let transactionStarted = false;
+  
   try {
     await beginTransaction();
+    transactionStarted = true;
+    
     const result = await callback();
     await commitTransaction();
+    transactionStarted = false;
+    
     return result;
   } catch (error) {
-    await rollbackTransaction();
+    if (transactionStarted) {
+      try {
+        await rollbackTransaction();
+      } catch (rollbackError) {
+        console.error('Error rolling back transaction:', rollbackError);
+        // Don't override the original error
+      }
+    }
     throw error;
+  }
+}
+
+// Database statistics for monitoring
+export async function getDatabaseStats() {
+  try {
+    const [fileSize, pageCount, pageSize, walMode] = await Promise.all([
+      getOne("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"),
+      getOne("SELECT * FROM pragma_page_count()"),
+      getOne("SELECT * FROM pragma_page_size()"),
+      getOne("SELECT * FROM pragma_journal_mode()")
+    ]);
+    
+    return {
+      fileSize: fileSize?.size || 0,
+      pageCount: pageCount?.page_count || 0,
+      pageSize: pageSize?.page_size || 0,
+      journalMode: walMode?.journal_mode || 'unknown',
+      path: dbPath,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    throw new Error(`Failed to get database stats: ${error.message}`);
   }
 }
 

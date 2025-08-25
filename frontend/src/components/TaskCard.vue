@@ -136,9 +136,22 @@
     </div>
 
     <!-- Description preview (if exists and not empty) -->
-    <p v-if="task.description && showDescription" class="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
-      {{ task.description }}
-    </p>
+    <div v-if="task.description && task.description.trim()" class="mt-2">
+      <p 
+        class="text-sm text-gray-500 dark:text-gray-400 cursor-pointer transition-all duration-200"
+        :class="showDescription ? 'line-clamp-none' : 'line-clamp-2'"
+        @click.stop="toggleDescription"
+      >
+        {{ task.description }}
+      </p>
+      <button 
+        v-if="task.description.length > 100"
+        @click.stop="toggleDescription"
+        class="text-xs text-blue-500 hover:text-blue-600 mt-1"
+      >
+        {{ showDescription ? 'Show less' : 'Show more' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -154,7 +167,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['edit']);
+const emit = defineEmits(['edit', 'click']);
 
 const taskStore = useTaskStore();
 const showDescription = ref(false);
@@ -224,6 +237,10 @@ const daysRemainingClass = computed(() => {
 });
 
 function handleTaskClick() {
+  emit('click', props.task);
+}
+
+function toggleDescription() {
   showDescription.value = !showDescription.value;
 }
 
@@ -258,5 +275,10 @@ function formatDueDate(dateString) {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.line-clamp-none {
+  display: block;
+  overflow: visible;
 }
 </style>

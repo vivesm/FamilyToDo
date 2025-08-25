@@ -10,21 +10,28 @@ A visual, family-oriented task management application with priority-based organi
 - **Real-time Updates**: WebSocket-powered instant synchronization across all devices
 - **Recurring Tasks**: Set up daily, weekly, or monthly recurring tasks
 - **Categories**: Organize tasks with custom categories and icons
+- **Task Attachments**: Upload files (images, PDFs, documents) to tasks
+- **Camera Integration**: Capture photos directly from the app
+- **Comments System**: Add threaded comments to tasks with attachments
+- **Overdue Notifications**: Visual notification bells for overdue tasks per person
 
 ### UI/UX Features
 - **Dual View Modes**: 
   - **Card View**: Visual cards with progress bars showing time until due
   - **List View**: Compact, information-dense list display
-- **Minimalist Design**: Clean, uncluttered interface with compact filters
-- **Dark Mode**: Toggle between light and dark themes
+- **Modern Glass Morphism Design**: Frosted glass effects with backdrop blur
+- **Dark Mode**: Enhanced dark theme with surface colors
 - **Progress Visualization**: Cards display visual progress bars that fill as due dates approach
 - **Smart Filtering**: Filter by person, category, or view all tasks
-- **Show/Hide Completed**: Toggle visibility of completed tasks
+- **Show/Hide Completed**: Toggle visibility of completed tasks (long press for settings)
+- **Smooth Animations**: Slide-up modals, urgent pulse effects, and toast notifications
 
 ### Mobile Features
 - **PWA Support**: Install as a native app on mobile devices
-- **Touch Gestures**: Long-press anywhere to access settings
+- **Touch Gestures**: Long-press eye button to access settings
 - **Responsive Design**: Optimized for all screen sizes
+- **Camera Access**: Native camera integration for photo capture
+- **iPad Optimized**: Full support for iPad on local network
 
 ## Tech Stack
 
@@ -106,17 +113,29 @@ FamilyToDo/
 │   │   │   ├── TaskCard.vue          # Card view component
 │   │   │   ├── TaskListItem.vue      # List view component
 │   │   │   ├── ViewToggle.vue        # View mode toggle
-│   │   │   └── AddTaskModal.vue      # Task creation/editing
+│   │   │   ├── AddTaskModal.vue      # Task creation/editing
+│   │   │   └── CameraCapture.vue     # Camera photo capture
 │   │   ├── views/         # Page components
 │   │   ├── stores/        # Pinia stores
 │   │   ├── composables/   # Vue composables
+│   │   │   ├── useLongPress.js       # Long press detection
+│   │   │   ├── useLongPressButton.js # Button long press
+│   │   │   └── useDarkMode.js        # Dark mode toggle
 │   │   └── services/      # API and WebSocket services
 ├── backend/               # Node.js backend API
 │   ├── src/
 │   │   ├── routes/       # API endpoints
+│   │   │   ├── tasks.js          # Task operations
+│   │   │   ├── people.js         # People management
+│   │   │   ├── categories.js     # Categories
+│   │   │   ├── comments.js       # Comments system
+│   │   │   └── upload.js         # File uploads
 │   │   ├── db/           # Database configuration
+│   │   ├── middleware/   # Express middleware
 │   │   └── utils/        # Utility functions
-│   └── uploads/          # User uploaded images
+│   └── uploads/          # User uploaded files
+│       ├── attachments/  # Task attachments
+│       └── camera/       # Camera captures
 └── data/                 # SQLite database files
 ```
 
@@ -126,10 +145,29 @@ FamilyToDo/
 Create a `.env` file in the backend directory:
 
 ```env
-PORT=3001
+# Server Configuration
+PORT=4000
 NODE_ENV=development
+
+# Database
 DATABASE_PATH=./data/familytodo.db
+
+# File Upload
 UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=5242880
+MAX_ATTACHMENT_SIZE=10485760
+
+# CORS (for iPad/network access)
+CORS_ORIGIN=http://localhost:5173
+ALLOWED_HOSTS=localhost,192.168.*,10.*,*.local
+
+# Socket.io
+SOCKET_CORS_ORIGIN=http://localhost:5173
+
+# Camera Settings
+CAMERA_QUALITY=0.85
+CAMERA_MAX_WIDTH=1920
+CAMERA_MAX_HEIGHT=1080
 ```
 
 ### Caddy (Production)
@@ -171,33 +209,55 @@ The included `Caddyfile` provides HTTPS configuration for production deployment.
 ### Endpoints
 
 #### Tasks
-- `GET /api/tasks` - Get all tasks
+- `GET /api/tasks` - Get all tasks with counts
 - `POST /api/tasks` - Create a new task
 - `PUT /api/tasks/:id` - Update a task
-- `DELETE /api/tasks/:id` - Delete a task
-- `PUT /api/tasks/:id/complete` - Toggle task completion
+- `DELETE /api/tasks/:id` - Delete a task (soft delete)
+- `PUT /api/tasks/:id/complete` - Mark task as complete
+- `PUT /api/tasks/:id/uncomplete` - Mark task as incomplete
+- `GET /api/tasks/:id/details` - Get task with attachments
+- `GET /api/tasks/:id/attachments` - Get task attachments
 
 #### People
 - `GET /api/people` - Get all people
 - `POST /api/people` - Create a person
+- `PUT /api/people/:id` - Update a person
 - `DELETE /api/people/:id` - Delete a person
 
 #### Categories
 - `GET /api/categories` - Get all categories
 - `POST /api/categories` - Create a category
+- `PUT /api/categories/:id` - Update a category
 - `DELETE /api/categories/:id` - Delete a category
 
+#### Comments
+- `GET /api/comments/task/:taskId` - Get task comments
+- `POST /api/comments/task/:taskId` - Add comment to task
+- `PUT /api/comments/:id` - Update a comment
+- `DELETE /api/comments/:id` - Delete a comment
+
 #### Uploads
-- `POST /api/upload` - Upload an image
+- `POST /api/upload/image` - Upload profile image
+- `POST /api/upload/task/:taskId/attachment` - Upload task attachment
+- `POST /api/upload/comment/:commentId/attachment` - Upload comment attachment
+- `POST /api/upload/camera` - Upload camera photo (base64)
+- `DELETE /api/upload/attachment/:id` - Delete attachment
 
 ### WebSocket Events
 - `taskCreated` - New task created
 - `taskUpdated` - Task updated
 - `taskDeleted` - Task deleted
+- `taskCompleted` - Task marked complete
+- `taskUncompleted` - Task marked incomplete
 - `personCreated` - Person added
+- `personUpdated` - Person updated
 - `personDeleted` - Person removed
 - `categoryCreated` - Category added
+- `categoryUpdated` - Category updated
 - `categoryDeleted` - Category removed
+- `task:comment:added` - Comment added to task
+- `task:comment:updated` - Comment updated
+- `task:comment:deleted` - Comment deleted
 
 ## Development
 

@@ -8,9 +8,18 @@ const router = express.Router();
 // Get all categories
 router.get('/', async (req, res) => {
   try {
-    const categories = await getAll(
-      'SELECT * FROM categories ORDER BY sort_order ASC, created_at ASC'
-    );
+    const { include_deleted } = req.query;
+    
+    let query = 'SELECT * FROM categories';
+    
+    // By default, exclude deleted categories unless specifically requested
+    if (include_deleted !== 'true') {
+      query += ' WHERE (deleted = 0 OR deleted IS NULL)';
+    }
+    
+    query += ' ORDER BY sort_order ASC, created_at ASC';
+    
+    const categories = await getAll(query);
     res.json(categories);
   } catch (error) {
     console.error('Error fetching categories:', error);
@@ -130,7 +139,14 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete default categories' });
     }
 
-    await runQuery('DELETE FROM categories WHERE id = ?', [req.params.id]);
+    // Soft delete category - mark as deleted instead of removing from database
+    await runQuery(
+      `UPDATE categories 
+       SET deleted = 1, 
+           deleted_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [req.params.id]
+    );
     
     // Emit real-time update
     emitUpdate(req.app.get('io'), 'category-deleted', { id: req.params.id });

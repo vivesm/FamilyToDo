@@ -47,6 +47,7 @@
               :key="task.id"
               :task="task"
               @edit="handleEditTask"
+              @click="handleViewTask(task)"
             />
           </div>
         </div>
@@ -62,6 +63,7 @@
               :key="task.id"
               :task="task"
               @edit="handleEditTask"
+              @click="handleViewTask(task)"
             />
           </div>
         </div>
@@ -77,6 +79,7 @@
               :key="task.id"
               :task="task"
               @edit="handleEditTask"
+              @click="handleViewTask(task)"
             />
           </div>
         </div>
@@ -131,6 +134,15 @@
       :task="editingTask"
       @close="handleCloseModal" 
     />
+
+    <!-- Task Detail Modal -->
+    <TaskDetailModal 
+      v-if="viewingTask"
+      :task="viewingTask"
+      @close="handleCloseDetailModal"
+      @edit="handleEditFromDetail"
+      @updated="taskStore.fetchTasks"
+    />
   </div>
 </template>
 
@@ -145,12 +157,14 @@ import ViewToggle from '@/components/ViewToggle.vue';
 import TaskCard from '@/components/TaskCard.vue';
 import TaskListItem from '@/components/TaskListItem.vue';
 import AddTaskModal from '@/components/AddTaskModal.vue';
+import TaskDetailModal from '@/components/TaskDetailModal.vue';
 
 const taskStore = useTaskStore();
 const priorityStore = usePriorityStore();
 const router = useRouter();
 const showAddTask = ref(false);
 const editingTask = ref(null);
+const viewingTask = ref(null);
 
 // Long press eye button to open settings
 const openSettings = () => {
@@ -175,11 +189,30 @@ const {
 function handleEditTask(task) {
   editingTask.value = task;
   showAddTask.value = false;
+  viewingTask.value = null;
+}
+
+// Handle view task details
+function handleViewTask(task) {
+  viewingTask.value = task;
+  showAddTask.value = false;
+  editingTask.value = null;
 }
 
 // Handle modal close
 function handleCloseModal() {
   showAddTask.value = false;
   editingTask.value = null;
+}
+
+// Handle detail modal close
+function handleCloseDetailModal() {
+  viewingTask.value = null;
+}
+
+// Handle edit from detail modal
+function handleEditFromDetail(task) {
+  viewingTask.value = null;
+  editingTask.value = task;
 }
 </script>

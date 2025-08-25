@@ -67,7 +67,8 @@ frontend/src/
 │   ├── TaskCard.vue           # Card view with progress visualization
 │   ├── TaskListItem.vue       # List view item component
 │   ├── ViewToggle.vue         # Card/List view toggle
-│   └── AddTaskModal.vue       # Task creation/editing modal
+│   ├── AddTaskModal.vue       # Task creation/editing modal
+│   └── CameraCapture.vue      # Camera photo capture component
 ├── views/              # Page components
 │   ├── HomeView.vue           # Main task view
 │   ├── SettingsView.vue       # Settings and family management
@@ -78,7 +79,8 @@ frontend/src/
 │   └── categoryStore.js      # Category state management
 ├── composables/        # Vue composables
 │   ├── useDarkMode.js        # Dark mode toggle logic
-│   └── useLongPress.js       # Long press gesture detection
+│   ├── useLongPress.js       # Long press gesture detection
+│   └── useLongPressButton.js # Button-specific long press
 └── services/           # API and WebSocket services
     ├── api.js                # HTTP API client
     └── socket.js             # WebSocket client
@@ -91,7 +93,8 @@ backend/src/
 │   ├── tasks.js             # Task CRUD operations
 │   ├── people.js            # People management
 │   ├── categories.js        # Category management
-│   └── upload.js            # Image upload handling
+│   ├── comments.js          # Comments and attachments
+│   └── upload.js            # File upload handling
 ├── db/                # Database
 │   └── database.js          # SQLite connection and queries
 └── utils/             # Utilities
@@ -120,25 +123,38 @@ backend/src/
 - Responsive design with `sm:`, `md:`, `lg:` prefixes
 - Custom colors defined in tailwind.config.js
 
-## Recent Updates (v1.1.0)
+## Recent Updates
 
-### New Components
+### Version 1.2.0 (2025-01-24)
+#### New Components
+1. **CameraCapture.vue** - Native camera integration with front/back switching
+2. **useLongPressButton.js** - Button-specific long press detection
+
+#### Major Features
+- **Attachments System**: Full file upload support for tasks and comments
+- **Comments System**: Threaded discussions with real-time updates
+- **Camera Integration**: Direct photo capture from device camera
+- **Glass Morphism UI**: Modern frosted glass design system
+- **Network Support**: iPad access on local network
+
+#### Backend Enhancements
+- New routes for comments and attachments
+- Extended upload system for multiple file types
+- Camera photo upload via base64
+- Real-time socket events for comments
+
+### Version 1.1.0 (2025-01-23)
+#### New Components
 1. **CompactFilterBar.vue** - Minimalist filter bar reducing screen space by 60%
 2. **TaskListItem.vue** - Compact single-line task display for list view
 3. **ViewToggle.vue** - Toggle between card and list views
 
-### New Features
+#### New Features
 - Dual view modes (Card/List) with localStorage persistence
 - Visual progress bars on task cards showing time until due
 - Color-coded progress indicators (green → yellow → red)
 - Days remaining badges on tasks
 - Relocated UI controls for better UX
-
-### UI/UX Improvements
-- Filter bar height reduced from ~150px to ~60px
-- Dark mode button moved to bottom-left
-- Show/hide completed toggle moved next to view toggle
-- Removed duplicate floating action buttons
 
 ## Important Notes
 
@@ -173,9 +189,11 @@ backend/src/
 CREATE TABLE people (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
+  email TEXT,
   photo_url TEXT,
   color TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Categories table  
@@ -184,6 +202,7 @@ CREATE TABLE categories (
   name TEXT NOT NULL,
   icon TEXT,
   color TEXT,
+  sort_order INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -198,6 +217,8 @@ CREATE TABLE tasks (
   recurring_pattern TEXT,
   completed BOOLEAN DEFAULT 0,
   completed_at DATETIME,
+  deleted BOOLEAN DEFAULT 0,
+  deleted_at DATETIME,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id)
@@ -210,5 +231,45 @@ CREATE TABLE task_assignments (
   PRIMARY KEY (task_id, person_id),
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
   FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+);
+
+-- Task attachments table
+CREATE TABLE task_attachments (
+  id INTEGER PRIMARY KEY,
+  task_id INTEGER NOT NULL,
+  filename TEXT NOT NULL,
+  original_name TEXT,
+  url TEXT NOT NULL,
+  type TEXT,
+  size INTEGER,
+  uploaded_by INTEGER,
+  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (uploaded_by) REFERENCES people(id) ON DELETE SET NULL
+);
+
+-- Task comments table
+CREATE TABLE task_comments (
+  id INTEGER PRIMARY KEY,
+  task_id INTEGER NOT NULL,
+  person_id INTEGER,
+  comment TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE SET NULL
+);
+
+-- Comment attachments table
+CREATE TABLE comment_attachments (
+  id INTEGER PRIMARY KEY,
+  comment_id INTEGER NOT NULL,
+  filename TEXT NOT NULL,
+  original_name TEXT,
+  url TEXT NOT NULL,
+  type TEXT,
+  size INTEGER,
+  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (comment_id) REFERENCES task_comments(id) ON DELETE CASCADE
 );
 ```

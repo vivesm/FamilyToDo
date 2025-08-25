@@ -13,7 +13,18 @@ const router = express.Router();
 // Get all people
 router.get('/', async (req, res) => {
   try {
-    const people = await getAll('SELECT * FROM people ORDER BY created_at ASC');
+    const { include_deleted } = req.query;
+    
+    let query = 'SELECT * FROM people';
+    
+    // By default, exclude deleted people unless specifically requested
+    if (include_deleted !== 'true') {
+      query += ' WHERE (deleted = 0 OR deleted IS NULL)';
+    }
+    
+    query += ' ORDER BY created_at ASC';
+    
+    const people = await getAll(query);
     res.json(people);
   } catch (error) {
     console.error('Error fetching people:', error);
@@ -120,8 +131,15 @@ router.delete('/:id', async (req, res) => {
       }
     }
 
-    // Delete person (cascade will handle task_assignments)
-    await runQuery('DELETE FROM people WHERE id = ?', [req.params.id]);
+    // Soft delete person - mark as deleted instead of removing from database
+    await runQuery(
+      `UPDATE people 
+       SET deleted = 1, 
+           deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [req.params.id]
+    );
     
     // Emit real-time update
     emitUpdate(req.app.get('io'), 'person-deleted', { id: req.params.id });

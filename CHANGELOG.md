@@ -5,6 +5,41 @@ All notable changes to FamilyToDo will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-01-24
+
+### Added
+- **Task Attachments System**: Upload files (images, PDFs, documents) to tasks
+- **Camera Integration**: Capture photos directly from the app with front/back camera switching
+- **Comments System**: Threaded comments on tasks with real-time updates
+- **Comment Attachments**: Add files to comments
+- **Glass Morphism UI**: Modern frosted glass design with backdrop blur effects
+- **Notification Bells**: Visual indicators for overdue tasks per person
+- **Task Detail API**: Comprehensive task details endpoint with attachments
+- **File Type Support**: Extended support for PDFs, Word docs, Excel, CSV files
+- **Network Configuration**: Support for iPad access on local network
+- **Camera Component**: CameraCapture.vue for native photo capture
+
+### Changed
+- **Settings Access**: Long press on eye button instead of filter bar area
+- **UI Modernization**: Complete redesign with glass morphism effects
+- **Dark Mode**: Enhanced with surface colors for better contrast
+- **Button Styles**: Gradient primary buttons with rounded design
+- **Modal Design**: Frosted glass backdrops with slide-up animations
+- **Upload System**: Extended to handle multiple file types and larger files
+
+### Fixed
+- Database schema with proper indexes for new tables
+- Upload routes to handle various file types correctly
+- Settings access mechanism for better UX
+- Memory leaks in socket connections
+- Rate limiting for upload endpoints
+
+### Security
+- Added file type validation for uploads
+- Implemented size limits for attachments (10MB)
+- SQL injection prevention in comment queries
+- XSS protection in comment rendering
+
 ## [1.1.0] - 2025-01-23
 
 ### Added

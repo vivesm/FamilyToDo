@@ -55,19 +55,23 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
-        changeOrigin: true
+        target: 'http://192.168.7.244:4000',
+        changeOrigin: true,
+        secure: false
       },
       '/uploads': {
-        target: 'http://localhost:4000',
-        changeOrigin: true
+        target: 'http://192.168.7.244:4000',
+        changeOrigin: true,
+        secure: false
       },
       '/socket.io': {
-        target: 'http://localhost:4000',
+        target: 'http://192.168.7.244:4000',
         changeOrigin: true,
-        ws: true
+        ws: true,
+        secure: false
       }
     }
   }

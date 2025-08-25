@@ -14,7 +14,7 @@ import peopleRoutes from './routes/people.js';
 import tasksRoutes from './routes/tasks.js';
 import categoriesRoutes from './routes/categories.js';
 import uploadRoutes from './routes/upload.js';
-import commentsRoutes from './routes/comments.js';
+import commentsRoutes, { setSocketIO } from './routes/comments.js';
 
 // Import database
 import { initDatabase } from './db/database.js';
@@ -32,20 +32,107 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const httpServer = createServer(app);
 
+// CORS configuration for multiple origins
+const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',');
+const socketCorsOrigins = (process.env.SOCKET_CORS_ORIGIN || 'http://localhost:5173').split(',');
+
+// Helper function to validate origin against allowed patterns
+function isOriginAllowed(origin, allowedOrigins) {
+  if (!origin) return true; // Allow requests with no origin
+
+  return allowedOrigins.some(allowed => {
+    // Exact match
+    if (allowed === origin) return true;
+    
+    // Special handling for local network IPs (192.168.x.x)
+    if (allowed.includes('192.168.*')) {
+      const protocol = allowed.split('://')[0];
+      const port = allowed.split(':').pop();
+      const expectedUrl = `${protocol}://192.168.*:${port}`;
+      
+      if (allowed === expectedUrl) {
+        // Validate it's actually a 192.168.x.x IP
+        const urlPattern = new RegExp(`^${protocol}://192\\.168\\.[0-9]{1,3}\\.[0-9]{1,3}:${port}$`);
+        return urlPattern.test(origin);
+      }
+    }
+    
+    // Special handling for Tailscale network (100.64.0.0/10)
+    if (allowed.includes('100.64.*')) {
+      const protocol = allowed.split('://')[0];
+      const port = allowed.split(':').pop();
+      const expectedUrl = `${protocol}://100.64.*:${port}`;
+      
+      if (allowed === expectedUrl) {
+        // Validate it's actually a 100.64.x.x IP (Tailscale range)
+        const urlPattern = new RegExp(`^${protocol}://100\\.64\\.[0-9]{1,3}\\.[0-9]{1,3}:${port}$`);
+        return urlPattern.test(origin);
+      }
+    }
+    
+    return false;
+  });
+}
+
 // Initialize Socket.io
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.SOCKET_CORS_ORIGIN || 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin, socketCorsOrigins)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST']
   }
 });
 
+// Pass socket.io instance to comments route
+setSocketIO(io);
+
 // Middleware
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      // Development: Allow unsafe-eval for Vite HMR, unsafe-inline for dev tools
+      // Production: Stricter CSP without unsafe-eval/unsafe-inline
+      scriptSrc: process.env.NODE_ENV === 'development' 
+        ? ["'self'", "'unsafe-inline'", "'unsafe-eval'"] 
+        : ["'self'", "'sha256-HASH_WILL_BE_GENERATED'"], // Use nonce/hash in production
+      styleSrc: ["'self'", "'unsafe-inline'"], // Vue scoped styles need this
+      imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow HTTPS images
+      connectSrc: process.env.NODE_ENV === 'development'
+        ? ["'self'", "ws:", "wss:", "http://localhost:*", "https://localhost:*"]
+        : ["'self'", "ws:", "wss:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'", "blob:"],
+      frameSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+  // Additional security headers
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  frameguard: { action: 'deny' },
+  xssFilter: true
 }));
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin, corsOrigins)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(morgan('dev'));
@@ -76,12 +163,44 @@ app.post('/api/tasks', createLimiter);
 app.post('/api/categories', createLimiter);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    const { checkDatabaseHealth, getDatabaseStats } = await import('./db/database.js');
+    
+    // Check database health
+    const dbHealth = await checkDatabaseHealth();
+    
+    res.json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      database: dbHealth
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      error: error.message
+    });
+  }
+});
+
+// Database stats endpoint (development only)
+app.get('/api/health/db', async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({ error: 'Database stats only available in development' });
+  }
+  
+  try {
+    const { getDatabaseStats } = await import('./db/database.js');
+    const stats = await getDatabaseStats();
+    res.json(stats);
+  } catch (error) {
+    console.error('Database stats failed:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Socket.io connection handling
@@ -133,10 +252,12 @@ async function startServer() {
     await initDatabase();
     
     const PORT = process.env.PORT || 4000;
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 FamilyToDo backend running on port ${PORT}`);
+    const HOST = '0.0.0.0';
+    httpServer.listen(PORT, HOST, () => {
+      console.log(`🚀 FamilyToDo backend running on ${HOST}:${PORT}`);
       console.log(`📱 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+      console.log(`📲 Network access: http://192.168.7.244:${PORT}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

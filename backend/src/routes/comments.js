@@ -1,8 +1,20 @@
 import express from 'express';
 import { runQuery, getOne, getAll } from '../db/database.js';
-import { emitTaskUpdate } from '../services/socket.js';
 
 const router = express.Router();
+
+// Socket.io instance will be set by the main server
+let io = null;
+
+export function setSocketIO(socketIO) {
+  io = socketIO;
+}
+
+function emitTaskUpdate(eventType, data) {
+  if (io) {
+    io.to('family-room').emit(eventType, data);
+  }
+}
 
 // Get all comments for a task
 router.get('/task/:taskId', async (req, res) => {
