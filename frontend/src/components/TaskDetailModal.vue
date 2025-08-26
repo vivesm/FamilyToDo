@@ -104,22 +104,37 @@
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Attachments ({{ attachments.length }})
             </label>
-            <label class="cursor-pointer">
-              <input 
-                type="file" 
-                accept="image/*"
-                multiple
-                @change="handleFileSelect"
-                class="hidden"
-                ref="fileInput"
+            <div class="flex items-center space-x-2">
+              <!-- File Upload -->
+              <label class="cursor-pointer">
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  multiple
+                  @change="handleFileSelect"
+                  class="hidden"
+                  ref="fileInput"
+                >
+                <span class="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 transition-all">
+                  <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Image
+                </span>
+              </label>
+              
+              <!-- Camera Button -->
+              <button
+                @click="showCamera = true"
+                class="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 transition-all"
               >
-              <span class="inline-flex items-center px-3 py-1.5 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 transition-all">
                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                Add Image
-              </span>
-            </label>
+                Camera
+              </button>
+            </div>
           </div>
 
           <!-- Upload Progress -->
@@ -180,15 +195,12 @@
           </div>
         </div>
 
-        <!-- Comments Section (placeholder) -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Comments ({{ task.comment_count || 0 }})
-          </label>
-          <div class="text-center py-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p class="text-gray-500 dark:text-gray-400 text-sm">Comments coming soon</p>
-          </div>
-        </div>
+        <!-- Comments Section -->
+        <CommentsSection 
+          :task-id="task.id"
+          @updated="handleCommentsUpdated"
+          @preview-image="previewImage"
+        />
       </div>
     </div>
 
@@ -212,6 +224,16 @@
         </svg>
       </button>
     </div>
+    
+    <!-- Camera Modal -->
+    <div v-if="showCamera" class="fixed inset-0 bg-black/80 flex items-center justify-center z-60 p-4">
+      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-4">
+        <CameraCapture
+          @capture="handleCameraCapture"
+          @close="showCamera = false"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -220,6 +242,8 @@ import { ref, computed, onMounted } from 'vue';
 import { format } from 'date-fns';
 import { useToast } from 'vue-toastification';
 import { usePriorityStore } from '@/stores/priorityStore';
+import CommentsSection from '@/components/CommentsSection.vue';
+import CameraCapture from '@/components/CameraCapture.vue';
 import api from '@/services/api';
 
 const props = defineProps({
@@ -238,6 +262,7 @@ const attachments = ref([]);
 const uploadingFiles = ref([]);
 const previewedImage = ref(null);
 const fileInput = ref(null);
+const showCamera = ref(false);
 
 const priorityEmoji = computed(() => priorityStore.getPriority(props.task.priority).emoji);
 const priorityName = computed(() => priorityStore.getPriority(props.task.priority).name);
@@ -328,6 +353,47 @@ function previewImage(attachment) {
 
 function formatDate(date) {
   return format(new Date(date), 'MMM d, yyyy h:mm a');
+}
+
+function handleCommentsUpdated() {
+  emit('updated');
+}
+
+async function handleCameraCapture(photoData) {
+  // Create a blob from base64 data
+  const response = await fetch(photoData);
+  const blob = await response.blob();
+  
+  const uploadingFile = {
+    name: `camera-photo-${Date.now()}.jpg`,
+    progress: 0
+  };
+  
+  uploadingFiles.value.push(uploadingFile);
+  
+  const formData = new FormData();
+  formData.append('file', blob, uploadingFile.name);
+  
+  try {
+    const response = await api.post(`/upload/task/${props.task.id}/attachment`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        uploadingFile.progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      }
+    });
+    
+    attachments.value.push(response.data.attachment);
+    toast.success('Photo uploaded successfully');
+    emit('updated');
+  } catch (error) {
+    console.error('Upload failed:', error);
+    toast.error('Failed to upload photo');
+  } finally {
+    uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile);
+    showCamera.value = false;
+  }
 }
 </script>
 
