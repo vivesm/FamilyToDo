@@ -1,0 +1,63 @@
+name: Build and Notify
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      
+      - name: Install and test backend
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm test --if-present
+      
+      - name: Install and test frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm test --if-present
+      
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+      
+      - name: Create deployment summary
+        if: success()
+        run: |
+          echo "## 🚀 Ready to Deploy!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changes in this push:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          git log --oneline -5 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### To deploy to production:" >> $GITHUB_STEP_SUMMARY
+          echo "1. SSH into your VPS: \`ssh melvin@sbvps\`" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run: \`cd /home/melvin/projects/FamilyToDo && ./scripts/deploy-on-vps.sh\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Frontend built successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Ready for deployment" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Deployment reminder
+        if: success()
+        run: |
+          echo "::notice title=Ready to Deploy::Tests passed! Run deploy-on-vps.sh on your server to deploy."
