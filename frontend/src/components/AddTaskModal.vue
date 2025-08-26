@@ -407,7 +407,10 @@ async function handleSubmit() {
       taskId = props.task.id;
     } else {
       const newTask = await taskStore.createTask(taskData);
-      taskId = newTask.id;
+      // Check if newTask exists and has an id
+      if (newTask && newTask.id) {
+        taskId = newTask.id;
+      }
     }
     
     // Upload attachments if any
