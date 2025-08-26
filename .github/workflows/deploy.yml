@@ -66,7 +66,20 @@ jobs:
             echo "::error::VPS_SSH_KEY secret is not set"
             exit 1
           fi
+          if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
+            echo "::warning::TAILSCALE_AUTH_KEY not set - will try direct connection"
+          fi
           echo "✅ All required secrets are configured"
+      
+      # Option 1: Connect via Tailscale (if auth key provided)
+      - name: Connect to Tailscale
+        if: ${{ secrets.TAILSCALE_AUTH_KEY != '' }}
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          tags: tag:ci
       
       - name: Setup SSH
         env:
@@ -76,25 +89,40 @@ jobs:
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           
+          # Determine connection method
+          if [ -n "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
+            echo "Using Tailscale connection..."
+            # Try to get Tailscale IP of the VPS
+            VPS_IP=$(tailscale ip -4 ${{ secrets.VPS_TAILSCALE_NAME }} 2>/dev/null || echo "${{ secrets.VPS_HOST }}")
+            echo "Connecting to Tailscale IP: $VPS_IP"
+          else
+            echo "Using direct connection..."
+            VPS_IP="${{ secrets.VPS_HOST }}"
+          fi
+          
           # Try to connect and add to known hosts
-          echo "Testing SSH connection to ${{ secrets.VPS_HOST }}..."
-          ssh-keyscan -H -t rsa,ed25519 ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>&1 || {
+          echo "Testing SSH connection to $VPS_IP..."
+          ssh-keyscan -H -t rsa,ed25519 $VPS_IP >> ~/.ssh/known_hosts 2>&1 || {
             echo "::warning::Could not scan host keys. Adding StrictHostKeyChecking=no"
-            echo "Host ${{ secrets.VPS_HOST }}" >> ~/.ssh/config
+            echo "Host $VPS_IP" >> ~/.ssh/config
             echo "  StrictHostKeyChecking no" >> ~/.ssh/config
             echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
           }
           
           # Test SSH connection
           echo "Testing SSH connection..."
-          ssh -o ConnectTimeout=10 ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'" || {
+          ssh -o ConnectTimeout=10 ${{ secrets.VPS_USER }}@$VPS_IP "echo 'SSH connection successful'" || {
             echo "::error::SSH connection failed. Please check:"
-            echo "::error::1. VPS_HOST is correct (IP or hostname)"
-            echo "::error::2. VPS_USER is correct"
-            echo "::error::3. SSH port 22 is open on the server"
+            echo "::error::1. If using Tailscale: TAILSCALE_AUTH_KEY and VPS_TAILSCALE_NAME are correct"
+            echo "::error::2. If direct: VPS_HOST is accessible from GitHub Actions"
+            echo "::error::3. VPS_USER is correct"
             echo "::error::4. SSH key is properly configured on the server"
+            echo "::error::5. Firewall allows connection from source IP"
             exit 1
           }
+          
+          # Export for later use
+          echo "VPS_IP=$VPS_IP" >> $GITHUB_ENV
       
       - name: Deploy to VPS
         env:
@@ -196,13 +224,13 @@ jobs:
           
           # Copy and execute deployment script
           echo "Copying deployment script to VPS..."
-          scp -o StrictHostKeyChecking=no deploy_remote.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/ || {
+          scp -o StrictHostKeyChecking=no deploy_remote.sh ${{ secrets.VPS_USER }}@${VPS_IP}:/tmp/ || {
             echo "::error::Failed to copy deployment script to VPS"
             exit 1
           }
           
           echo "Executing deployment script..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' bash /tmp/deploy_remote.sh" || {
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${VPS_IP} "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' bash /tmp/deploy_remote.sh" || {
             echo "::error::Deployment script execution failed"
             exit 1
           }
