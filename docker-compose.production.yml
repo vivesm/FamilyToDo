@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  familytodo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: familytodo
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/.env:/app/backend/.env:ro
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - familytodo-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Nginx reverse proxy with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: familytodo-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - familytodo
+    networks:
+      - familytodo-network
+    profiles:
+      - with-nginx
+
+  # Optional: Database backup service
+  backup:
+    image: alpine:latest
+    container_name: familytodo-backup
+    restart: unless-stopped
+    volumes:
+      - ./backend/data:/data:ro
+      - ./backups:/backups
+    environment:
+      - BACKUP_INTERVAL=86400  # Daily backups (in seconds)
+    command: >
+      sh -c "while true; do
+        echo 'Backing up database...';
+        cp /data/familytodo.db /backups/familytodo_$$(date +%Y%m%d_%H%M%S).db;
+        find /backups -name 'familytodo_*.db' -mtime +7 -delete;
+        echo 'Backup complete';
+        sleep $$BACKUP_INTERVAL;
+      done"
+    profiles:
+      - with-backup
+
+networks:
+  familytodo-network:
+    driver: bridge
+
+volumes:
+  data:
+  uploads:
+  backups:

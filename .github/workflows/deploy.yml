@@ -1,0 +1,178 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '18'
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+      
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test --if-present
+      
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test --if-present
+      
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          # Create deployment script
+          cat > deploy_remote.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          DEPLOY_PATH="${DEPLOY_PATH:-/home/$USER/familytodo}"
+          BACKUP_PATH="${DEPLOY_PATH}/backups"
+          
+          echo "🚀 Starting deployment..."
+          
+          # Create directories if they don't exist
+          mkdir -p "$DEPLOY_PATH"
+          mkdir -p "$BACKUP_PATH"
+          
+          cd "$DEPLOY_PATH"
+          
+          # Backup database if it exists
+          if [ -f "backend/data/familytodo.db" ]; then
+            echo "📦 Backing up database..."
+            cp backend/data/familytodo.db "$BACKUP_PATH/familytodo_$(date +%Y%m%d_%H%M%S).db"
+            # Keep only last 10 backups
+            ls -t "$BACKUP_PATH"/familytodo_*.db | tail -n +11 | xargs -r rm
+          fi
+          
+          # Clone or pull latest code
+          if [ ! -d ".git" ]; then
+            echo "📥 Cloning repository..."
+            git clone https://github.com/vivesm/FamilyToDo.git .
+          else
+            echo "📥 Pulling latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
+          fi
+          
+          # Copy production env if doesn't exist
+          if [ ! -f "backend/.env" ]; then
+            echo "📝 Creating .env from production template..."
+            cp backend/.env.production backend/.env
+            echo "⚠️  Please update backend/.env with your configuration!"
+          fi
+          
+          # Docker deployment
+          if command -v docker-compose &> /dev/null; then
+            echo "🐳 Deploying with Docker..."
+            docker-compose down || true
+            docker-compose build --no-cache
+            docker-compose up -d
+            
+            # Wait for health check
+            echo "🏥 Checking health..."
+            sleep 10
+            if curl -f http://localhost:4000/api/health > /dev/null 2>&1; then
+              echo "✅ Deployment successful!"
+            else
+              echo "❌ Health check failed, rolling back..."
+              docker-compose down
+              docker-compose up -d
+              exit 1
+            fi
+          else
+            # PM2 deployment
+            echo "📦 Installing dependencies..."
+            cd backend && npm ci --production
+            cd ../frontend && npm ci && npm run build
+            cd ../backend
+            
+            # Install PM2 if not present
+            if ! command -v pm2 &> /dev/null; then
+              echo "📦 Installing PM2..."
+              npm install -g pm2
+            fi
+            
+            # Start or restart with PM2
+            echo "🔄 Restarting application..."
+            pm2 delete familytodo 2>/dev/null || true
+            NODE_ENV=production pm2 start npm --name familytodo -- start
+            pm2 save
+            
+            # Wait for health check
+            echo "🏥 Checking health..."
+            sleep 10
+            if curl -f http://localhost:4000/api/health > /dev/null 2>&1; then
+              echo "✅ Deployment successful!"
+            else
+              echo "❌ Health check failed!"
+              exit 1
+            fi
+          fi
+          
+          echo "🎉 Deployment complete!"
+          EOF
+          
+          # Copy and execute deployment script
+          scp deploy_remote.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /tmp/deploy_remote.sh"
+      
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -f http://${{ secrets.VPS_HOST }}:4000/api/health || exit 1
+          echo "✅ Application is running!"
+      
+      - name: Notify success
+        if: success()
+        run: echo "🎉 Deployment successful to ${{ secrets.VPS_HOST }}"
+      
+      - name: Notify failure
+        if: failure()
+        run: echo "❌ Deployment failed! Check logs for details."
