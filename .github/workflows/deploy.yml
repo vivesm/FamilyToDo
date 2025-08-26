@@ -75,7 +75,26 @@ jobs:
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          
+          # Try to connect and add to known hosts
+          echo "Testing SSH connection to ${{ secrets.VPS_HOST }}..."
+          ssh-keyscan -H -t rsa,ed25519 ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>&1 || {
+            echo "::warning::Could not scan host keys. Adding StrictHostKeyChecking=no"
+            echo "Host ${{ secrets.VPS_HOST }}" >> ~/.ssh/config
+            echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+            echo "  UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+          }
+          
+          # Test SSH connection
+          echo "Testing SSH connection..."
+          ssh -o ConnectTimeout=10 ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'" || {
+            echo "::error::SSH connection failed. Please check:"
+            echo "::error::1. VPS_HOST is correct (IP or hostname)"
+            echo "::error::2. VPS_USER is correct"
+            echo "::error::3. SSH port 22 is open on the server"
+            echo "::error::4. SSH key is properly configured on the server"
+            exit 1
+          }
       
       - name: Deploy to VPS
         env:
@@ -176,8 +195,17 @@ jobs:
           EOF
           
           # Copy and execute deployment script
-          scp deploy_remote.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash /tmp/deploy_remote.sh"
+          echo "Copying deployment script to VPS..."
+          scp -o StrictHostKeyChecking=no deploy_remote.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/ || {
+            echo "::error::Failed to copy deployment script to VPS"
+            exit 1
+          }
+          
+          echo "Executing deployment script..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' bash /tmp/deploy_remote.sh" || {
+            echo "::error::Deployment script execution failed"
+            exit 1
+          }
       
       - name: Verify deployment
         run: |
