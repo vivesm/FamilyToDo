@@ -88,27 +88,60 @@ fi
 echo -e "${YELLOW}Restarting application...${NC}"
 
 # Check if using PM2
-if command -v pm2 &> /dev/null && pm2 list | grep -q "familytodo"; then
-    pm2 restart familytodo
-    echo -e "${GREEN}✓ Application restarted with PM2${NC}"
-    pm2 status familytodo
+if command -v pm2 &> /dev/null; then
+    # Check if familytodo is in PM2 list
+    if pm2 list 2>/dev/null | grep -q "familytodo"; then
+        pm2 restart familytodo
+        echo -e "${GREEN}✓ Application restarted with PM2${NC}"
+        pm2 status familytodo
+    else
+        # Try to start it if not running
+        echo -e "${YELLOW}Starting application with PM2...${NC}"
+        cd backend
+        pm2 start npm --name familytodo -- start
+        pm2 save
+        cd ..
+        echo -e "${GREEN}✓ Application started with PM2${NC}"
+        pm2 status familytodo
+    fi
     
-# Check if using Docker
-elif [ -f "../docker-compose.yml" ] || [ -f "docker-compose.yml" ]; then
-    docker-compose down
-    docker-compose up -d
-    echo -e "${GREEN}✓ Application restarted with Docker${NC}"
-    docker-compose ps
+# Check if using Docker Compose
+elif command -v docker &> /dev/null && command -v docker-compose &> /dev/null; then
+    if [ -f "docker-compose.yml" ]; then
+        docker-compose down
+        docker-compose up -d
+        echo -e "${GREEN}✓ Application restarted with Docker Compose${NC}"
+        docker-compose ps
+    else
+        echo -e "${YELLOW}No docker-compose.yml found${NC}"
+    fi
     
 # Check if using systemd
-elif systemctl is-active --quiet familytodo; then
+elif [ -f "/etc/systemd/system/familytodo.service" ]; then
     sudo systemctl restart familytodo
     echo -e "${GREEN}✓ Application restarted with systemd${NC}"
     systemctl status familytodo --no-pager
     
+# Try direct npm start as fallback
 else
-    echo -e "${RED}Warning: Could not detect process manager (PM2/Docker/systemd)${NC}"
-    echo "Please restart the application manually"
+    echo -e "${YELLOW}No process manager detected, trying direct start...${NC}"
+    cd backend
+    
+    # Kill any existing Node process on port 4000
+    if lsof -i :4000 &> /dev/null; then
+        echo -e "${YELLOW}Stopping existing process on port 4000...${NC}"
+        kill $(lsof -t -i:4000) 2>/dev/null || true
+        sleep 2
+    fi
+    
+    # Start in background with nohup
+    nohup npm start > ../familytodo.log 2>&1 &
+    echo $! > ../familytodo.pid
+    cd ..
+    
+    echo -e "${GREEN}✓ Application started in background${NC}"
+    echo -e "${YELLOW}PID: $(cat familytodo.pid)${NC}"
+    echo -e "${YELLOW}Logs: tail -f familytodo.log${NC}"
 fi
 
 # Health check
