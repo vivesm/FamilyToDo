@@ -90,8 +90,26 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
+          
+          # Write SSH key with proper format
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          
+          # Check key format and convert if needed
+          if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+            echo "::warning::SSH key format issue detected, trying to fix..."
+            # Try to fix key format (ensure proper line endings)
+            sed -i 's/\r$//' ~/.ssh/id_rsa
+            
+            # Check again
+            if ! ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+              echo "::error::Invalid SSH private key format. Please check the VPS_SSH_KEY secret."
+              echo "::error::Ensure the key includes '-----BEGIN' and '-----END' lines with proper formatting."
+              exit 1
+            fi
+          fi
+          
+          echo "✅ SSH key validated successfully"
           
           # Determine connection method
           if [ -n "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
