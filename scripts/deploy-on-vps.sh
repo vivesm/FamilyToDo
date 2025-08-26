@@ -87,22 +87,34 @@ fi
 # Restart application
 echo -e "${YELLOW}Restarting application...${NC}"
 
-# Check if using PM2
+# Detect PM2 command location
+PM2_CMD=""
 if command -v pm2 &> /dev/null; then
+    PM2_CMD="pm2"
+elif [ -f "/home/melvin/.npm-global/bin/pm2" ]; then
+    PM2_CMD="/home/melvin/.npm-global/bin/pm2"
+elif [ -f "$HOME/.npm-global/bin/pm2" ]; then
+    PM2_CMD="$HOME/.npm-global/bin/pm2"
+fi
+
+# Check if using PM2
+if [ -n "$PM2_CMD" ]; then
+    echo -e "${YELLOW}Found PM2 at: $PM2_CMD${NC}"
+    
     # Check if familytodo is in PM2 list
-    if pm2 list 2>/dev/null | grep -q "familytodo"; then
-        pm2 restart familytodo
+    if $PM2_CMD list 2>/dev/null | grep -q "familytodo"; then
+        $PM2_CMD restart familytodo
         echo -e "${GREEN}✓ Application restarted with PM2${NC}"
-        pm2 status familytodo
+        $PM2_CMD status familytodo
     else
         # Try to start it if not running
         echo -e "${YELLOW}Starting application with PM2...${NC}"
         cd backend
-        pm2 start npm --name familytodo -- start
-        pm2 save
+        $PM2_CMD start npm --name familytodo -- start
+        $PM2_CMD save
         cd ..
         echo -e "${GREEN}✓ Application started with PM2${NC}"
-        pm2 status familytodo
+        $PM2_CMD status familytodo
     fi
     
 # Check if using Docker Compose
