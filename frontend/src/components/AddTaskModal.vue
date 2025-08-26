@@ -207,6 +207,65 @@
           ></textarea>
         </div>
 
+        <!-- Photo Attachments -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Photos (Optional)
+          </label>
+          <div class="flex items-center space-x-2 mb-3">
+            <!-- File Upload -->
+            <label class="cursor-pointer">
+              <input 
+                type="file" 
+                accept="image/*"
+                multiple
+                @change="handleFileSelect"
+                class="hidden"
+                ref="fileInput"
+              >
+              <span class="inline-flex items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 text-sm rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Add Photos
+              </span>
+            </label>
+            
+            <!-- Camera Button -->
+            <button
+              type="button"
+              @click="showCamera = true"
+              class="inline-flex items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 text-sm rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+            >
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Take Photo
+            </button>
+          </div>
+          
+          <!-- Photo Preview -->
+          <div v-if="form.attachments.length > 0" class="grid grid-cols-3 gap-2">
+            <div v-for="(photo, index) in form.attachments" :key="index" class="relative group">
+              <img 
+                :src="photo.preview" 
+                :alt="`Photo ${index + 1}`"
+                class="w-full h-24 object-cover rounded-lg"
+              >
+              <button
+                type="button"
+                @click="removeAttachment(index)"
+                class="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex justify-between pt-4">
           <!-- Delete button on the left (only in edit mode) -->
@@ -247,6 +306,16 @@
         </div>
       </form>
     </div>
+    
+    <!-- Camera Modal -->
+    <div v-if="showCamera" class="fixed inset-0 bg-black/80 flex items-center justify-center z-60 p-4">
+      <div class="bg-white dark:bg-gray-800 rounded-xl max-w-2xl w-full p-4">
+        <CameraCapture
+          @capture="handleCameraCapture"
+          @close="showCamera = false"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -256,6 +325,9 @@ import { useTaskStore } from '@/stores/taskStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { usePriorityStore } from '@/stores/priorityStore';
+import { useToast } from 'vue-toastification';
+import CameraCapture from '@/components/CameraCapture.vue';
+import api from '@/services/api';
 
 const props = defineProps({
   task: {
@@ -270,9 +342,12 @@ const taskStore = useTaskStore();
 const peopleStore = usePeopleStore();
 const categoryStore = useCategoryStore();
 const priorityStore = usePriorityStore();
+const toast = useToast();
 
 const loading = ref(false);
 const editMode = ref(!!props.task);
+const showCamera = ref(false);
+const fileInput = ref(null);
 
 const form = reactive({
   title: props.task?.title || '',
@@ -281,7 +356,8 @@ const form = reactive({
   priority: props.task?.priority || 3,
   due_date: props.task?.due_date ? props.task.due_date.split('T')[0] : '',
   recurring_pattern: props.task?.recurring_pattern || null,
-  assigned_people: props.task?.assigned_people?.map(p => p.id) || []
+  assigned_people: props.task?.assigned_people?.map(p => p.id) || [],
+  attachments: []
 });
 
 function togglePersonAssignment(personId) {
@@ -314,22 +390,96 @@ async function handleSubmit() {
   
   loading.value = true;
   try {
+    let taskData = {
+      title: form.title,
+      description: form.description,
+      category_id: form.category_id,
+      priority: form.priority,
+      due_date: form.due_date || null,
+      recurring_pattern: form.recurring_pattern,
+      assigned_people: form.assigned_people
+    };
+
+    let taskId;
+    
     if (editMode.value) {
-      await taskStore.updateTask(props.task.id, {
-        ...form,
-        due_date: form.due_date || null
-      });
+      await taskStore.updateTask(props.task.id, taskData);
+      taskId = props.task.id;
     } else {
-      await taskStore.createTask({
-        ...form,
-        due_date: form.due_date || null
-      });
+      const newTask = await taskStore.createTask(taskData);
+      taskId = newTask.id;
     }
+    
+    // Upload attachments if any
+    if (form.attachments.length > 0 && taskId) {
+      for (const attachment of form.attachments) {
+        const formData = new FormData();
+        
+        if (attachment.file) {
+          formData.append('file', attachment.file);
+        } else if (attachment.base64) {
+          // Convert base64 to blob for camera photos
+          const response = await fetch(attachment.base64);
+          const blob = await response.blob();
+          formData.append('file', blob, 'camera-photo.jpg');
+        }
+        
+        await api.post(`/upload/task/${taskId}/attachment`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
+      
+      // Refresh tasks to show attachments
+      await taskStore.fetchTasks();
+    }
+    
     emit('close');
   } catch (error) {
     console.error(`Error ${editMode.value ? 'updating' : 'creating'} task:`, error);
+    toast.error(`Failed to ${editMode.value ? 'update' : 'create'} task`);
   } finally {
     loading.value = false;
   }
+}
+
+function handleFileSelect(event) {
+  const files = Array.from(event.target.files);
+  
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) {
+      toast.warning(`${file.name} is not an image file`);
+      continue;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast.warning(`${file.name} is too large (max 10MB)`);
+      continue;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      form.attachments.push({
+        file,
+        preview: e.target.result
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+  
+  event.target.value = '';
+}
+
+function handleCameraCapture(photoData) {
+  form.attachments.push({
+    base64: photoData,
+    preview: photoData
+  });
+  showCamera.value = false;
+}
+
+function removeAttachment(index) {
+  form.attachments.splice(index, 1);
 }
 </script>
