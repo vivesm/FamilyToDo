@@ -68,12 +68,16 @@ jobs:
           fi
           if [ -z "${{ secrets.TAILSCALE_AUTH_KEY }}" ]; then
             echo "::warning::TAILSCALE_AUTH_KEY not set - will try direct connection"
+            echo "HAS_TAILSCALE=false" >> $GITHUB_ENV
+          else
+            echo "✅ Tailscale auth key configured"
+            echo "HAS_TAILSCALE=true" >> $GITHUB_ENV
           fi
           echo "✅ All required secrets are configured"
       
       # Option 1: Connect via Tailscale (if auth key provided)
       - name: Connect to Tailscale
-        if: ${{ secrets.TAILSCALE_AUTH_KEY != '' }}
+        if: ${{ env.HAS_TAILSCALE == 'true' }}
         uses: tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
