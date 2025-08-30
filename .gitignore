@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+familytodo.log
+familytodo.pid
+deploy.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test coverage
+coverage/
+*.lcov
+
+# Claude files (keep project CLAUDE.md, ignore user ones)
+/CLAUDE.md
+!*/CLAUDE.md
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Database files (keep schema, ignore data)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+uploads/
+backend/uploads/
+!backend/uploads/.gitkeep
+
+# Production build files in backend
+backend/public/assets/
+backend/public/workbox-*.js
+backend/public/sw.js
+backend/public/registerSW.js
+backend/public/index.html
+backend/public/manifest.json
+backend/public/manifest.webmanifest
+backend/public/favicon.svg
+backend/public/*.png
+backend/public/*.ico
+
+# Backup files
+*.backup
+*.bak
+backups/
+
+# PM2
+.pm2/
+pm2.json
+ecosystem.config.js

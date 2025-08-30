@@ -101,7 +101,7 @@ app.use(helmet({
       // Production: Stricter CSP without unsafe-eval/unsafe-inline
       scriptSrc: process.env.NODE_ENV === 'development' 
         ? ["'self'", "'unsafe-inline'", "'unsafe-eval'"] 
-        : ["'self'", "'sha256-HASH_WILL_BE_GENERATED'"], // Use nonce/hash in production
+        : ["'self'", "'unsafe-inline'"], // Allow inline scripts in production temporarily
       styleSrc: ["'self'", "'unsafe-inline'"], // Vue scoped styles need this
       imgSrc: ["'self'", "data:", "blob:", "https:"], // Allow HTTPS images
       connectSrc: process.env.NODE_ENV === 'development'
