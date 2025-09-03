@@ -141,8 +141,8 @@ router.delete('/:id', async (req, res) => {
       [req.params.id]
     );
     
-    // Emit real-time update
-    emitUpdate(req.app.get('io'), 'person-deleted', { id: req.params.id });
+    // Emit real-time update (convert id to number for consistency)
+    emitUpdate(req.app.get('io'), 'person-deleted', { id: parseInt(req.params.id, 10) });
     
     res.json({ message: 'Person deleted successfully' });
   } catch (error) {

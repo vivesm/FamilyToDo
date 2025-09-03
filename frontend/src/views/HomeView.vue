@@ -41,7 +41,7 @@
           <h2 class="text-2xl font-bold text-priority-urgent dark:text-red-400 mb-4 flex items-center">
             <span class="mr-2">{{ priorityStore.getPriority(1).emoji }}</span> {{ priorityStore.getPriority(1).name }}
           </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 task-grid">
             <TaskCard 
               v-for="task in taskStore.urgentTasks" 
               :key="task.id"
@@ -57,7 +57,7 @@
           <h2 class="text-2xl font-bold text-priority-soon dark:text-yellow-400 mb-4 flex items-center">
             <span class="mr-2">{{ priorityStore.getPriority(2).emoji }}</span> {{ priorityStore.getPriority(2).name }}
           </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 task-grid">
             <TaskCard 
               v-for="task in taskStore.soonTasks" 
               :key="task.id"
@@ -73,7 +73,7 @@
           <h2 class="text-2xl font-bold text-priority-whenever dark:text-green-400 mb-4 flex items-center">
             <span class="mr-2">{{ priorityStore.getPriority(3).emoji }}</span> {{ priorityStore.getPriority(3).name }}
           </h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 task-grid">
             <TaskCard 
               v-for="task in taskStore.wheneverTasks" 
               :key="task.id"
@@ -181,7 +181,6 @@ const {
   onTouchEnd: handleTouchEnd,
   onTouchCancel: handleTouchCancel,
   onTouchMove: handleTouchMove,
-  isLongPress,
   isLongPressActive
 } = useLongPressButton(openSettings, 1000); // 1 second hold
 

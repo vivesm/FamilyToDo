@@ -30,6 +30,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Trust proxy headers when behind a reverse proxy
+app.set('trust proxy', true);
+
 const httpServer = createServer(app);
 
 // CORS configuration for multiple origins
@@ -127,9 +131,11 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: (origin, callback) => {
+    console.log('CORS check - Origin:', origin, 'Allowed:', corsOrigins);
     if (isOriginAllowed(origin, corsOrigins)) {
       callback(null, true);
     } else {
+      console.error('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },

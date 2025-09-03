@@ -144,12 +144,16 @@ export const useTaskStore = defineStore('tasks', () => {
   async function completeTask(id) {
     try {
       const response = await api.post(`/tasks/${id}/complete`);
-      // Add completion animation class
-      const taskElement = document.querySelector(`[data-task-id="${id}"]`);
-      if (taskElement) {
-        taskElement.classList.add('task-completing');
-        await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Only animate if we're showing completed tasks
+      if (showCompleted.value) {
+        const taskElement = document.querySelector(`[data-task-id="${id}"]`);
+        if (taskElement) {
+          taskElement.classList.add('task-completing');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
+      
       // Don't update local store here - the socket event will handle it
       toast.success('Task completed! 🎉');
       

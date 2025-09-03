@@ -97,7 +97,9 @@ export const usePeopleStore = defineStore('people', () => {
   }
 
   function handlePersonDeleted({ id }) {
-    people.value = people.value.filter(p => p.id !== id);
+    // Convert id to number for comparison since backend sends string
+    const personId = parseInt(id, 10);
+    people.value = people.value.filter(p => p.id !== personId);
   }
 
   return {

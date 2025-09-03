@@ -14,7 +14,18 @@ const toast = useToast();
 export function initSocket() {
   if (socket) return socket;
 
-  socket = io('/', {
+  // Determine the socket URL based on the current environment
+  let socketUrl = '/';
+  
+  // If we're on the production domain, use the explicit backend URL
+  if (window.location.hostname === 'todo.vives.io') {
+    socketUrl = 'https://todo.vives.io';
+  } else if (window.location.hostname.includes('100.') || window.location.hostname.includes('tailscale')) {
+    // For Tailscale access, use the current origin
+    socketUrl = window.location.origin;
+  }
+
+  socket = io(socketUrl, {
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: reconnectDelay,

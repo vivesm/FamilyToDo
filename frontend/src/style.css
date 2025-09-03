@@ -130,6 +130,15 @@
     animation: taskComplete 0.5s ease-out forwards;
   }
 
+  /* Grid transition for smooth reorganization */
+  .task-grid {
+    transition: all 0.3s ease-out;
+  }
+  
+  .task-grid > * {
+    transition: all 0.3s ease-out;
+  }
+
   /* Overdue task enhanced animation */
   @keyframes overdueGlow {
     0%, 100% { 
